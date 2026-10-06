@@ -21,8 +21,8 @@ Update the Status column in the PR that changes it. "Implemented" means server r
 | Data export | Core | Not started | T4 | T6 | T4, T6 | none |
 | Account deletion (incl. Apple revocation) | Core | Not started | T4 | T6 | T4, T6 | Apple key for revocation |
 | Guided onboarding (state machine, 18+, visibility explainer) | Core | Not started | n/a | T6 | T6 | none |
-| Demo mode | Core | Not started | n/a | T5 | T5 | none |
-| Design system (cozy, Dynamic Type, dark mode, Liquid Glass with fallback) | Core | Not started | n/a | T5 | T5 | none |
+| Demo mode | Core | Implemented | n/a | T5 | T5 | none |
+| Design system (cozy, Dynamic Type, dark mode, Liquid Glass with fallback) | Core | Implemented | n/a | T5 | T5 | none |
 | Database schema in PulseDeals Supabase | Core | Not started | T2 | n/a | T2 | Supabase connector (connected) |
 | Worker deploy (staging, production) | Core | Not started | T8 | n/a | T8 | Cloudflare account + API token |
 | CI (Worker tests, `xcodebuild` on macOS) | Core | Not started | T8 | T8 | T8 | GitHub Actions |
