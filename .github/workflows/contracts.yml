@@ -1,0 +1,21 @@
+name: contracts
+
+on:
+  pull_request:
+    paths: ["docs/api/**", "redocly.yaml", ".github/workflows/contracts.yml"]
+  push:
+    branches: [main]
+    paths: ["docs/api/**", "redocly.yaml", ".github/workflows/contracts.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  lint-openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npx -y @redocly/cli@2 lint docs/api/openapi.yaml

@@ -1,0 +1,30 @@
+# Secrets
+.env
+.env.*
+!.env.example
+.dev.vars
+*.p8
+*.pem
+*.key
+
+# Node / Worker
+node_modules/
+dist/
+.wrangler/
+coverage/
+
+# Xcode
+ios/**/xcuserdata/
+ios/**/*.xcuserstate
+ios/build/
+DerivedData/
+*.ipa
+*.dSYM.zip
+
+# Database
+db/backups/
+*.dump
+*.sql.gz
+
+# OS
+.DS_Store

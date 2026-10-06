@@ -1,0 +1,1845 @@
+openapi: 3.1.0
+info:
+  title: BoulderMe API
+  version: 1.0.0
+  summary: Versioned REST API for the BoulderMe iPhone app.
+  description: |
+    Contract shared by the Cloudflare Worker (`api/`) and the iOS client (`ios/`).
+
+    Conventions (see `docs/adr/0001-architecture.md`):
+    - All routes live under `/v1`. Breaking changes require `/v2`.
+    - JSON bodies only, `Content-Type: application/json`, request bodies capped at 16 KiB.
+    - Wire fields are `snake_case`. IDs are opaque lowercase UUIDs. Timestamps are
+      ISO-8601 / RFC 3339 in UTC with a `Z` suffix (`2026-10-06T18:30:00Z`).
+    - Nullable fields are always present and explicitly `null`; optional request
+      fields may be omitted.
+    - Lists return `{ "items": [...], "next_cursor": string|null }`. Cursors are
+      opaque, expire after 24 hours, and are only valid with the same filters.
+      `limit` defaults to 20 and is capped at 50.
+    - Every error uses the `Error` envelope with a stable `code` (listed in
+      `ErrorCode`). Clients branch on `code`, never on `message`.
+    - Every response carries `X-Request-Id`. Write routes that create things accept
+      an `Idempotency-Key` header (UUID); replays within 24 hours return the
+      original response.
+    - Authenticated routes need `Authorization: Bearer <access_token>`.
+    - Grades use the V-scale as integers: `0` = V0 ... `17` = V17.
+    - Blocking is symmetric and silent: a blocked pair never sees each other in
+      discovery, profiles, invitations or chats, and gets `not_found` rather than
+      a hint that a block exists.
+servers:
+  - url: https://api.boulderme.app
+    description: Production (placeholder hostname until a domain is chosen)
+  - url: https://boulderme-api-staging.workers.dev
+    description: Staging (placeholder; real workers.dev subdomain is set at deploy)
+  - url: http://localhost:8787
+    description: Local `wrangler dev`
+security:
+  - bearerAuth: []
+tags:
+  - name: system
+    description: "Health checks."
+  - name: auth
+    description: "Sign in with Apple and session tokens."
+  - name: account
+    description: "The signed-in account, export and deletion."
+  - name: profile
+    description: "The member's own profile and discovery visibility."
+  - name: gyms
+    description: "Curated gyms and self-reported gym access."
+  - name: availability
+    description: "Weekly availability windows."
+  - name: discovery
+    description: "Finding other members by gym and skill."
+  - name: invitations
+    description: "One-to-one session invitations."
+  - name: chats
+    description: "Chat that opens after an invitation is accepted."
+  - name: safety
+    description: "Blocking and reporting."
+
+paths:
+  /v1/health:
+    get:
+      tags: [system]
+      operationId: getHealth
+      summary: Liveness and database reachability.
+      security: []
+      responses:
+        "200":
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  # ---------------------------------------------------------------- auth
+  /v1/auth/nonce:
+    post:
+      tags: [auth]
+      operationId: createAuthNonce
+      summary: Get a single-use nonce for Sign in with Apple.
+      description: |
+        The client passes `SHA256(nonce)` (hex) as the Apple request nonce, then sends the
+        raw `nonce` back to `/v1/auth/apple`. Nonces expire after 10 minutes and can be
+        used once.
+      security: []
+      responses:
+        "201":
+          description: Nonce issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthNonce"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/auth/apple:
+    post:
+      tags: [auth]
+      operationId: signInWithApple
+      summary: Exchange an Apple identity token and authorization code for a session.
+      description: |
+        The Worker validates the identity token's signature (Apple JWKS), `iss`,
+        `aud` (the app's bundle id), `exp`, and that its `nonce` claim equals
+        `SHA256(nonce)`. It exchanges `authorization_code` with Apple and stores the
+        Apple refresh token encrypted, for revocation on account deletion. The stable
+        Apple `sub` is the identity. Creates the account on first sign-in.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppleSignInRequest"
+      responses:
+        "200":
+          description: Signed in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refreshSession
+      summary: Rotate a refresh token for a new access + refresh token pair.
+      description: |
+        Rotation is atomic: the presented refresh token is consumed and a new one issued.
+        Presenting an already-used refresh token revokes the whole session family
+        (`refresh_token_reused`) and the client must sign in again.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: New tokens.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/auth/sign-out:
+    post:
+      tags: [auth]
+      operationId: signOut
+      summary: Revoke the current session family.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "204":
+          description: Signed out. Also returned when the session was already revoked.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ---------------------------------------------------------------- account
+  /v1/me:
+    get:
+      tags: [account]
+      operationId: getMe
+      summary: The signed-in account, its profile, gyms and onboarding state.
+      responses:
+        "200":
+          description: Current account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      tags: [account]
+      operationId: deleteAccount
+      summary: Permanently delete the account.
+      description: |
+        Immediately hides the profile, revokes every session, closes chats and cancels
+        open invitations, then removes profile, gym access, availability and
+        messages the account sent. A tombstone keeps the Apple subject hash so queued
+        work cannot resurrect the account. Apple token revocation is retried
+        durably. Reports filed about the account are kept for moderation (see
+        `docs/privacy-inventory.md`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteAccountRequest"
+      responses:
+        "202":
+          description: Deletion accepted; the account can no longer sign in.
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/me/export:
+    get:
+      tags: [account]
+      operationId: exportAccountData
+      summary: Download everything stored about the signed-in account.
+      responses:
+        "200":
+          description: Account data export.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountExport"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  # ---------------------------------------------------------------- profile
+  /v1/me/profile:
+    get:
+      tags: [profile]
+      operationId: getMyProfile
+      summary: "The signed-in member's own profile."
+      responses:
+        "200":
+          description: The signed-in member's own profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [profile]
+      operationId: upsertMyProfile
+      summary: Create or replace the profile.
+      description: |
+        Send `revision` from the last read (or `0` to create). A mismatch returns
+        `revision_conflict` with the current profile in `details.current`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileInput"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnProfile"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/me/discovery:
+    put:
+      tags: [profile]
+      operationId: setDiscovery
+      summary: Pause or resume appearing in discovery.
+      description: |
+        Paused members disappear from discovery and cannot receive new invitations.
+        Existing accepted chats stay open. Turning discovery on requires a complete
+        profile and at least one gym (`profile_incomplete`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiscoverySetting"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscoverySetting"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/RuleViolation"
+
+  # ---------------------------------------------------------------- gyms
+  /v1/gyms:
+    get:
+      tags: [gyms]
+      operationId: listGyms
+      summary: Browse or search the curated gym list.
+      parameters:
+        - name: q
+          in: query
+          description: Case-insensitive match on gym name or city. 2 to 60 characters.
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 60
+        - name: region
+          in: query
+          description: ISO 3166-2 subdivision code, e.g. `CA-ON`.
+          schema:
+            type: string
+            pattern: "^[A-Z]{2}-[A-Z0-9]{1,3}$"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Gyms, ordered by city then name.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GymPage"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/gyms/{gym_id}:
+    get:
+      tags: [gyms]
+      operationId: getGym
+      summary: "One gym."
+      parameters:
+        - $ref: "#/components/parameters/GymId"
+      responses:
+        "200":
+          description: Gym.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Gym"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/gym-requests:
+    post:
+      tags: [gyms]
+      operationId: requestGym
+      summary: Suggest a gym that is missing from the list.
+      description: Goes to a review queue; nothing is published automatically.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GymRequestInput"
+      responses:
+        "201":
+          description: Suggestion recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GymRequest"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/me/gyms:
+    get:
+      tags: [gyms]
+      operationId: listMyGyms
+      summary: Gyms the member climbs at, with self-reported access.
+      responses:
+        "200":
+          description: Gym access list (max 10).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 10
+                    items:
+                      $ref: "#/components/schemas/GymAccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/me/gyms/{gym_id}:
+    put:
+      tags: [gyms]
+      operationId: setGymAccess
+      summary: Add a gym or change its access type.
+      parameters:
+        - $ref: "#/components/parameters/GymId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GymAccessInput"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GymAccess"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/RuleViolation"
+    delete:
+      tags: [gyms]
+      operationId: removeGymAccess
+      summary: "Remove a gym from the member's list."
+      parameters:
+        - $ref: "#/components/parameters/GymId"
+      responses:
+        "204":
+          description: Removed (also when it was not on the list).
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ---------------------------------------------------------------- availability
+  /v1/me/availability:
+    get:
+      tags: [availability]
+      operationId: listMyAvailability
+      summary: "Weekly availability slots."
+      responses:
+        "200":
+          description: Weekly availability slots (max 21).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 21
+                    items:
+                      $ref: "#/components/schemas/AvailabilitySlot"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [availability]
+      operationId: addAvailability
+      summary: "Add a weekly availability slot."
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilitySlotInput"
+      responses:
+        "201":
+          description: Added.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilitySlot"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/RuleViolation"
+  /v1/me/availability/{slot_id}:
+    put:
+      tags: [availability]
+      operationId: updateAvailability
+      summary: "Change an availability slot."
+      parameters:
+        - $ref: "#/components/parameters/SlotId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilitySlotInput"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilitySlot"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [availability]
+      operationId: deleteAvailability
+      summary: "Remove an availability slot."
+      parameters:
+        - $ref: "#/components/parameters/SlotId"
+      responses:
+        "204":
+          description: Removed (also when already gone).
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ---------------------------------------------------------------- discovery
+  /v1/discovery:
+    get:
+      tags: [discovery]
+      operationId: discoverClimbers
+      summary: Find discoverable members at a gym.
+      description: |
+        Returns members who have discovery on, list `gym_id`, and overlap the requested
+        grade range. Excludes the caller, paused, deleted and blocked (either direction)
+        members. No location is used. Ordered by grade-range overlap, then most
+        recently active (day precision only).
+      parameters:
+        - name: gym_id
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - name: grade_min
+          in: query
+          schema:
+            $ref: "#/components/schemas/Grade"
+        - name: grade_max
+          in: query
+          schema:
+            $ref: "#/components/schemas/Grade"
+        - name: access_type
+          in: query
+          schema:
+            $ref: "#/components/schemas/AccessType"
+        - name: weekday
+          in: query
+          description: Only members with an availability slot on this ISO weekday.
+          schema:
+            $ref: "#/components/schemas/Weekday"
+        - name: time_of_day
+          in: query
+          schema:
+            $ref: "#/components/schemas/TimeOfDay"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Matching profiles.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileCardPage"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/RuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/profiles/{account_id}:
+    get:
+      tags: [discovery]
+      operationId: getProfile
+      summary: Another member's public profile.
+      description: |
+        Visible when the member is discoverable, or when the caller shares an invitation
+        or chat with them. Blocked or deleted members return `not_found`.
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+      responses:
+        "200":
+          description: Public profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------------------------------------------------------- invitations
+  /v1/invitations:
+    get:
+      tags: [invitations]
+      operationId: listInvitations
+      summary: "Incoming or outgoing invitations."
+      parameters:
+        - name: box
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [incoming, outgoing]
+        - name: status
+          in: query
+          description: Defaults to all statuses.
+          schema:
+            $ref: "#/components/schemas/InvitationStatus"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Invitations, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvitationPage"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [invitations]
+      operationId: createInvitation
+      summary: Invite a member to climb at a gym at a proposed time.
+      description: |
+        Rules enforced server-side (`rule_violation` codes in parentheses):
+        - recipient is discoverable, not the caller, not blocked either way (`not_found`);
+        - the caller has a complete profile (`profile_incomplete`);
+        - both members list `gym_id` (`gym_not_shared`);
+        - `proposed_start_at` is 1 hour to 60 days ahead (`invalid_time`);
+        - only one pending invitation per pair, either direction (`invitation_already_open`);
+        - at most 20 new invitations per day (`rate_limited`).
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvitationInput"
+      responses:
+        "201":
+          description: Sent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/RuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/invitations/{invitation_id}:
+    get:
+      tags: [invitations]
+      operationId: getInvitation
+      summary: "One invitation."
+      parameters:
+        - $ref: "#/components/parameters/InvitationId"
+      responses:
+        "200":
+          description: Invitation (sender or recipient only).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/invitations/{invitation_id}/accept:
+    post:
+      tags: [invitations]
+      operationId: acceptInvitation
+      summary: Recipient accepts; opens (or reopens) the pair's chat.
+      parameters:
+        - $ref: "#/components/parameters/InvitationId"
+      responses:
+        "200":
+          description: Accepted. `chat_id` is set.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/invitations/{invitation_id}/decline:
+    post:
+      tags: [invitations]
+      operationId: declineInvitation
+      summary: Recipient declines. The sender sees `declined`, nothing more.
+      parameters:
+        - $ref: "#/components/parameters/InvitationId"
+      responses:
+        "200":
+          description: Declined.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/invitations/{invitation_id}/cancel:
+    post:
+      tags: [invitations]
+      operationId: cancelInvitation
+      summary: Sender withdraws a pending invitation, or either member cancels an accepted session.
+      parameters:
+        - $ref: "#/components/parameters/InvitationId"
+      responses:
+        "200":
+          description: Cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  # ---------------------------------------------------------------- chats
+  /v1/chats:
+    get:
+      tags: [chats]
+      operationId: listChats
+      summary: Chats the member is in, most recent activity first.
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Chats.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/chats/{chat_id}:
+    get:
+      tags: [chats]
+      operationId: getChat
+      summary: "One chat."
+      parameters:
+        - $ref: "#/components/parameters/ChatId"
+      responses:
+        "200":
+          description: Chat.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chat"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/chats/{chat_id}/messages:
+    get:
+      tags: [chats]
+      operationId: listMessages
+      summary: Page back through history, or poll for new messages.
+      description: |
+        Without `after`: newest first, paged backwards with `cursor`.
+        With `after` (a message id): only newer messages, oldest first, for polling.
+        Clients poll every 5 seconds while the chat is on screen and stop in the
+        background. Also marks the chat read up to the newest returned message.
+      parameters:
+        - $ref: "#/components/parameters/ChatId"
+        - name: after
+          in: query
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Messages.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessagePage"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+    post:
+      tags: [chats]
+      operationId: sendMessage
+      summary: "Send a message in an open chat."
+      parameters:
+        - $ref: "#/components/parameters/ChatId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageInput"
+      responses:
+        "201":
+          description: Sent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/RuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  # ---------------------------------------------------------------- safety
+  /v1/blocks:
+    get:
+      tags: [safety]
+      operationId: listBlocks
+      summary: Members the caller has blocked.
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Blocks, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlockPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/blocks/{account_id}:
+    put:
+      tags: [safety]
+      operationId: blockMember
+      summary: Block a member. Takes effect immediately and silently.
+      description: |
+        Cancels pending invitations between the pair, closes their chat for both sides,
+        and hides each from the other everywhere. Idempotent.
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+      responses:
+        "200":
+          description: Blocked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Block"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [safety]
+      operationId: unblockMember
+      summary: Unblock. Does not reopen the old chat or invitations.
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+      responses:
+        "204":
+          description: Unblocked (also when not blocked).
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/reports:
+    post:
+      tags: [safety]
+      operationId: createReport
+      summary: Report a member, invitation or message for moderation review.
+      description: |
+        Reports are reviewed by the operator via the SQL runbook in `OPERATIONS.md`.
+        The reported member is never told who reported them. Filing a report does not
+        block automatically; the client offers blocking alongside.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportInput"
+      responses:
+        "201":
+          description: Report received.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Short-lived (15 min) access token issued by `/v1/auth/*`.
+
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      description: Opaque cursor from a previous page's `next_cursor`.
+      schema:
+        type: string
+        maxLength: 512
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Client-generated UUID, reused on retries of the same logical request.
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    GymId:
+      name: gym_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    SlotId:
+      name: slot_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    AccountId:
+      name: account_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    InvitationId:
+      name: invitation_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    ChatId:
+      name: chat_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+
+  responses:
+    ValidationFailed:
+      description: Malformed request (`validation_failed`, `body_too_large`, `invalid_cursor`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Missing, expired or revoked credentials.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Does not exist, or the caller may not see it (including blocks).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: State changed underneath the request (`revision_conflict`, `invalid_state`, `invitation_already_open`, `idempotency_mismatch`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    RuleViolation:
+      description: Well-formed but not allowed by a product rule.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    RateLimited:
+      description: Too many requests. Honor `Retry-After` (seconds).
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unavailable:
+      description: A dependency is down. Retry with backoff.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    # ------------------------------------------------ primitives
+    Uuid:
+      type: string
+      format: uuid
+      pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    Timestamp:
+      type: string
+      format: date-time
+      description: RFC 3339 UTC, e.g. `2026-10-06T18:30:00Z`.
+    Grade:
+      type: integer
+      minimum: 0
+      maximum: 17
+      description: V-scale grade, `0` = V0.
+    Weekday:
+      type: integer
+      minimum: 1
+      maximum: 7
+      description: ISO weekday, `1` = Monday.
+    TimeOfDay:
+      type: string
+      enum: [morning, afternoon, evening]
+      description: "morning: before 12:00, afternoon: 12:00 to 17:00, evening: from 17:00, in the slot's local time."
+    AccessType:
+      type: string
+      enum: [membership, guest_pass]
+      description: Self-reported. Never verified; always labeled so in the UI.
+    ClimbingStyle:
+      type: string
+      enum: [slab, vertical, overhang, roof, crimps, slopers, pinches, dynamic, technical, power, comp_style, highball]
+    InvitationStatus:
+      type: string
+      enum: [pending, accepted, declined, cancelled, expired]
+      description: |
+        `pending` -> `accepted` | `declined` | `cancelled` | `expired`;
+        `accepted` -> `cancelled`. Pending invitations expire at `proposed_start_at`.
+    ErrorCode:
+      type: string
+      enum:
+        - validation_failed
+        - body_too_large
+        - invalid_cursor
+        - unauthorized
+        - token_expired
+        - refresh_token_reused
+        - apple_token_invalid
+        - nonce_invalid
+        - account_deleted
+        - forbidden
+        - not_found
+        - revision_conflict
+        - invalid_state
+        - idempotency_mismatch
+        - invitation_already_open
+        - profile_incomplete
+        - gym_not_shared
+        - gym_limit_reached
+        - availability_limit_reached
+        - invalid_time
+        - chat_closed
+        - rate_limited
+        - unavailable
+        - internal_error
+
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, request_id, details]
+          properties:
+            code:
+              $ref: "#/components/schemas/ErrorCode"
+            message:
+              type: string
+              description: Human-readable, English, safe to log. Never shown verbatim as the only UI.
+            request_id:
+              type: string
+            details:
+              description: Code-specific extra data, e.g. `fields` for `validation_failed` or `current` for `revision_conflict`.
+              type: [object, "null"]
+      example:
+        error:
+          code: invitation_already_open
+          message: There is already a pending invitation between you two.
+          request_id: 8f6c2c7e1d2a4b9e
+          details: null
+
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status, version, database]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        version:
+          type: string
+        database:
+          type: string
+          enum: [ok, unreachable]
+
+    # ------------------------------------------------ auth
+    AuthNonce:
+      type: object
+      additionalProperties: false
+      required: [nonce, expires_at]
+      properties:
+        nonce:
+          type: string
+          minLength: 32
+          maxLength: 128
+        expires_at:
+          $ref: "#/components/schemas/Timestamp"
+    AppleSignInRequest:
+      type: object
+      additionalProperties: false
+      required: [identity_token, authorization_code, nonce]
+      properties:
+        identity_token:
+          type: string
+          maxLength: 4096
+        authorization_code:
+          type: string
+          maxLength: 1024
+        nonce:
+          type: string
+          maxLength: 128
+        given_name:
+          description: Only sent by Apple on the first authorization; used as the default display name.
+          type: [string, "null"]
+          maxLength: 80
+        client_installation_id:
+          description: Random per-install UUID, used only for rate limiting.
+          $ref: "#/components/schemas/Uuid"
+    RefreshRequest:
+      type: object
+      additionalProperties: false
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+          minLength: 32
+          maxLength: 256
+    Session:
+      type: object
+      additionalProperties: false
+      required: [access_token, access_token_expires_at, refresh_token, refresh_token_expires_at, account_id, is_new_account]
+      properties:
+        access_token:
+          type: string
+        access_token_expires_at:
+          $ref: "#/components/schemas/Timestamp"
+        refresh_token:
+          type: string
+          description: Opaque; store in Keychain. Valid 60 days, single use.
+        refresh_token_expires_at:
+          $ref: "#/components/schemas/Timestamp"
+        account_id:
+          $ref: "#/components/schemas/Uuid"
+        is_new_account:
+          type: boolean
+
+    # ------------------------------------------------ account
+    OnboardingState:
+      type: object
+      additionalProperties: false
+      required: [has_profile, has_gym, has_availability, adult_confirmed, discovery_explained]
+      description: Server-derived checklist the client's onboarding state machine resumes from.
+      properties:
+        has_profile:
+          type: boolean
+        has_gym:
+          type: boolean
+        has_availability:
+          type: boolean
+        adult_confirmed:
+          type: boolean
+        discovery_explained:
+          type: boolean
+    Me:
+      type: object
+      additionalProperties: false
+      required: [account_id, created_at, profile, gyms, onboarding, unread_chat_count, pending_incoming_invitation_count]
+      properties:
+        account_id:
+          $ref: "#/components/schemas/Uuid"
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+        profile:
+          oneOf:
+            - $ref: "#/components/schemas/OwnProfile"
+            - type: "null"
+        gyms:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/GymAccess"
+        onboarding:
+          $ref: "#/components/schemas/OnboardingState"
+        unread_chat_count:
+          type: integer
+          minimum: 0
+        pending_incoming_invitation_count:
+          type: integer
+          minimum: 0
+    DeleteAccountRequest:
+      type: object
+      additionalProperties: false
+      required: [confirm]
+      properties:
+        confirm:
+          type: string
+          const: DELETE
+    AccountExport:
+      type: object
+      additionalProperties: false
+      required: [exported_at, account, profile, gyms, availability, invitations, chats, blocks, reports_filed, gym_requests]
+      properties:
+        exported_at:
+          $ref: "#/components/schemas/Timestamp"
+        account:
+          type: object
+          additionalProperties: false
+          required: [account_id, created_at]
+          properties:
+            account_id:
+              $ref: "#/components/schemas/Uuid"
+            created_at:
+              $ref: "#/components/schemas/Timestamp"
+        profile:
+          oneOf:
+            - $ref: "#/components/schemas/OwnProfile"
+            - type: "null"
+        gyms:
+          type: array
+          items:
+            $ref: "#/components/schemas/GymAccess"
+        availability:
+          type: array
+          items:
+            $ref: "#/components/schemas/AvailabilitySlot"
+        invitations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Invitation"
+        chats:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [chat, messages]
+            properties:
+              chat:
+                $ref: "#/components/schemas/Chat"
+              messages:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+        blocks:
+          type: array
+          items:
+            $ref: "#/components/schemas/Block"
+        reports_filed:
+          type: array
+          items:
+            $ref: "#/components/schemas/Report"
+        gym_requests:
+          type: array
+          items:
+            $ref: "#/components/schemas/GymRequest"
+
+    # ------------------------------------------------ profile
+    ProfileInput:
+      type: object
+      additionalProperties: false
+      required: [revision, display_name, grade_min, grade_max, styles, intro, adult_confirmed, discovery_explained]
+      properties:
+        revision:
+          type: integer
+          minimum: 0
+          description: Last revision read; `0` to create.
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        grade_min:
+          $ref: "#/components/schemas/Grade"
+        grade_max:
+          $ref: "#/components/schemas/Grade"
+        styles:
+          type: array
+          maxItems: 6
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/ClimbingStyle"
+        intro:
+          type: [string, "null"]
+          maxLength: 280
+        adult_confirmed:
+          type: boolean
+          description: Member confirms they are 18 or older. Must be `true`.
+        discovery_explained:
+          type: boolean
+          description: Member has seen what other signed-in members can see.
+    OwnProfile:
+      type: object
+      additionalProperties: false
+      required: [account_id, revision, display_name, grade_min, grade_max, styles, intro, discoverable, adult_confirmed, discovery_explained, updated_at]
+      properties:
+        account_id:
+          $ref: "#/components/schemas/Uuid"
+        revision:
+          type: integer
+          minimum: 1
+        display_name:
+          type: string
+        grade_min:
+          $ref: "#/components/schemas/Grade"
+        grade_max:
+          $ref: "#/components/schemas/Grade"
+        styles:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClimbingStyle"
+        intro:
+          type: [string, "null"]
+        discoverable:
+          type: boolean
+        adult_confirmed:
+          type: boolean
+        discovery_explained:
+          type: boolean
+        updated_at:
+          $ref: "#/components/schemas/Timestamp"
+    DiscoverySetting:
+      type: object
+      additionalProperties: false
+      required: [discoverable]
+      properties:
+        discoverable:
+          type: boolean
+    ProfileCard:
+      type: object
+      additionalProperties: false
+      description: What discovery shows. Everything here is visible to every signed-in member.
+      required: [account_id, display_name, grade_min, grade_max, styles, access_type, availability_summary, active_recently]
+      properties:
+        account_id:
+          $ref: "#/components/schemas/Uuid"
+        display_name:
+          type: string
+        grade_min:
+          $ref: "#/components/schemas/Grade"
+        grade_max:
+          $ref: "#/components/schemas/Grade"
+        styles:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClimbingStyle"
+        access_type:
+          description: Their self-reported access at the gym that was searched.
+          $ref: "#/components/schemas/AccessType"
+        availability_summary:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [weekday, time_of_day]
+            properties:
+              weekday:
+                $ref: "#/components/schemas/Weekday"
+              time_of_day:
+                $ref: "#/components/schemas/TimeOfDay"
+        active_recently:
+          type: boolean
+          description: Signed in within the last 14 days. No exact timestamps are exposed.
+    PublicProfile:
+      type: object
+      additionalProperties: false
+      required: [account_id, display_name, grade_min, grade_max, styles, intro, gyms, availability, active_recently]
+      properties:
+        account_id:
+          $ref: "#/components/schemas/Uuid"
+        display_name:
+          type: string
+        grade_min:
+          $ref: "#/components/schemas/Grade"
+        grade_max:
+          $ref: "#/components/schemas/Grade"
+        styles:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClimbingStyle"
+        intro:
+          type: [string, "null"]
+        gyms:
+          type: array
+          items:
+            $ref: "#/components/schemas/GymAccess"
+        availability:
+          type: array
+          items:
+            $ref: "#/components/schemas/AvailabilitySlot"
+        active_recently:
+          type: boolean
+    ProfileCardPage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProfileCard"
+        next_cursor:
+          type: [string, "null"]
+
+    # ------------------------------------------------ gyms
+    Gym:
+      type: object
+      additionalProperties: false
+      required: [gym_id, name, city, region, country, address, website_url, is_bouldering_only]
+      properties:
+        gym_id:
+          $ref: "#/components/schemas/Uuid"
+        name:
+          type: string
+        city:
+          type: string
+        region:
+          type: string
+          description: ISO 3166-2 code, e.g. `CA-ON`.
+        country:
+          type: string
+          description: ISO 3166-1 alpha-2, e.g. `CA`.
+        address:
+          type: [string, "null"]
+        website_url:
+          type: [string, "null"]
+          format: uri
+        is_bouldering_only:
+          type: boolean
+    GymPage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Gym"
+        next_cursor:
+          type: [string, "null"]
+    GymAccessInput:
+      type: object
+      additionalProperties: false
+      required: [access_type]
+      properties:
+        access_type:
+          $ref: "#/components/schemas/AccessType"
+    GymAccess:
+      type: object
+      additionalProperties: false
+      required: [gym, access_type, self_reported, updated_at]
+      properties:
+        gym:
+          $ref: "#/components/schemas/Gym"
+        access_type:
+          $ref: "#/components/schemas/AccessType"
+        self_reported:
+          type: boolean
+          const: true
+        updated_at:
+          $ref: "#/components/schemas/Timestamp"
+    GymRequestInput:
+      type: object
+      additionalProperties: false
+      required: [name, city, region]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 80
+        city:
+          type: string
+          minLength: 2
+          maxLength: 60
+        region:
+          type: string
+          pattern: "^[A-Z]{2}-[A-Z0-9]{1,3}$"
+        website_url:
+          type: [string, "null"]
+          format: uri
+          maxLength: 200
+        note:
+          type: [string, "null"]
+          maxLength: 280
+    GymRequest:
+      type: object
+      additionalProperties: false
+      required: [gym_request_id, name, city, region, status, created_at]
+      properties:
+        gym_request_id:
+          $ref: "#/components/schemas/Uuid"
+        name:
+          type: string
+        city:
+          type: string
+        region:
+          type: string
+        status:
+          type: string
+          enum: [submitted, added, rejected]
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+
+    # ------------------------------------------------ availability
+    AvailabilitySlotInput:
+      type: object
+      additionalProperties: false
+      required: [weekday, start_minute, end_minute, time_zone]
+      description: A weekly recurring window. `end_minute` must exceed `start_minute` by at least 30.
+      properties:
+        weekday:
+          $ref: "#/components/schemas/Weekday"
+        start_minute:
+          type: integer
+          minimum: 0
+          maximum: 1410
+          description: Minutes after local midnight, multiple of 30.
+        end_minute:
+          type: integer
+          minimum: 30
+          maximum: 1440
+        time_zone:
+          type: string
+          description: IANA zone, e.g. `America/Toronto`.
+          maxLength: 64
+        gym_id:
+          description: Optional; `null` means any of the member's gyms.
+          oneOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+    AvailabilitySlot:
+      type: object
+      additionalProperties: false
+      required: [slot_id, weekday, start_minute, end_minute, time_zone, gym_id]
+      properties:
+        slot_id:
+          $ref: "#/components/schemas/Uuid"
+        weekday:
+          $ref: "#/components/schemas/Weekday"
+        start_minute:
+          type: integer
+        end_minute:
+          type: integer
+        time_zone:
+          type: string
+        gym_id:
+          oneOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+
+    # ------------------------------------------------ invitations
+    InvitationInput:
+      type: object
+      additionalProperties: false
+      required: [recipient_account_id, gym_id, proposed_start_at]
+      properties:
+        recipient_account_id:
+          $ref: "#/components/schemas/Uuid"
+        gym_id:
+          $ref: "#/components/schemas/Uuid"
+        proposed_start_at:
+          $ref: "#/components/schemas/Timestamp"
+        duration_minutes:
+          type: integer
+          minimum: 30
+          maximum: 300
+          default: 120
+        note:
+          type: [string, "null"]
+          maxLength: 200
+          description: Short plain-text note shown with the invitation. Not a chat channel.
+    InvitationParty:
+      type: object
+      additionalProperties: false
+      required: [account_id, display_name, grade_min, grade_max]
+      properties:
+        account_id:
+          $ref: "#/components/schemas/Uuid"
+        display_name:
+          type: string
+        grade_min:
+          $ref: "#/components/schemas/Grade"
+        grade_max:
+          $ref: "#/components/schemas/Grade"
+    Invitation:
+      type: object
+      additionalProperties: false
+      required: [invitation_id, status, sender, recipient, gym, proposed_start_at, duration_minutes, note, chat_id, created_at, responded_at, expires_at]
+      properties:
+        invitation_id:
+          $ref: "#/components/schemas/Uuid"
+        status:
+          $ref: "#/components/schemas/InvitationStatus"
+        sender:
+          $ref: "#/components/schemas/InvitationParty"
+        recipient:
+          $ref: "#/components/schemas/InvitationParty"
+        gym:
+          $ref: "#/components/schemas/Gym"
+        proposed_start_at:
+          $ref: "#/components/schemas/Timestamp"
+        duration_minutes:
+          type: integer
+        note:
+          type: [string, "null"]
+        chat_id:
+          description: Set once accepted.
+          oneOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+        responded_at:
+          oneOf:
+            - $ref: "#/components/schemas/Timestamp"
+            - type: "null"
+        expires_at:
+          $ref: "#/components/schemas/Timestamp"
+    InvitationPage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Invitation"
+        next_cursor:
+          type: [string, "null"]
+
+    # ------------------------------------------------ chats
+    Chat:
+      type: object
+      additionalProperties: false
+      description: One chat per pair of members, opened by their first accepted invitation.
+      required: [chat_id, other_member, status, last_message, unread_count, upcoming_session, created_at, updated_at]
+      properties:
+        chat_id:
+          $ref: "#/components/schemas/Uuid"
+        other_member:
+          $ref: "#/components/schemas/InvitationParty"
+        status:
+          type: string
+          enum: [open, closed]
+          description: "`closed` after a block or account deletion; history stays readable to the remaining member until they delete their account."
+        last_message:
+          oneOf:
+            - $ref: "#/components/schemas/Message"
+            - type: "null"
+        unread_count:
+          type: integer
+          minimum: 0
+        upcoming_session:
+          description: The pair's next accepted invitation, if any.
+          oneOf:
+            - $ref: "#/components/schemas/Invitation"
+            - type: "null"
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+        updated_at:
+          $ref: "#/components/schemas/Timestamp"
+    ChatPage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Chat"
+        next_cursor:
+          type: [string, "null"]
+    MessageInput:
+      type: object
+      additionalProperties: false
+      required: [body]
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Plain text. Leading/trailing whitespace is trimmed; must be non-empty after trimming.
+    Message:
+      type: object
+      additionalProperties: false
+      required: [message_id, chat_id, sender_account_id, body, created_at]
+      properties:
+        message_id:
+          $ref: "#/components/schemas/Uuid"
+        chat_id:
+          $ref: "#/components/schemas/Uuid"
+        sender_account_id:
+          description: "`null` when the sender has deleted their account."
+          oneOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+        body:
+          type: string
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+    MessagePage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+        next_cursor:
+          type: [string, "null"]
+
+    # ------------------------------------------------ safety
+    Block:
+      type: object
+      additionalProperties: false
+      required: [blocked_account_id, display_name, created_at]
+      properties:
+        blocked_account_id:
+          $ref: "#/components/schemas/Uuid"
+        display_name:
+          description: Name at the time of blocking, so the list stays readable.
+          type: string
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+    BlockPage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Block"
+        next_cursor:
+          type: [string, "null"]
+    ReportInput:
+      type: object
+      additionalProperties: false
+      required: [reported_account_id, context, reason]
+      properties:
+        reported_account_id:
+          $ref: "#/components/schemas/Uuid"
+        context:
+          type: string
+          enum: [profile, invitation, message]
+        invitation_id:
+          description: Required when `context` is `invitation`.
+          oneOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+        message_id:
+          description: Required when `context` is `message`.
+          oneOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+        reason:
+          type: string
+          enum: [harassment, inappropriate_content, spam, fake_profile, safety_concern, underage, other]
+        details:
+          type: [string, "null"]
+          maxLength: 1000
+    Report:
+      type: object
+      additionalProperties: false
+      required: [report_id, reported_account_id, context, reason, status, created_at]
+      properties:
+        report_id:
+          $ref: "#/components/schemas/Uuid"
+        reported_account_id:
+          $ref: "#/components/schemas/Uuid"
+        context:
+          type: string
+          enum: [profile, invitation, message]
+        reason:
+          type: string
+        status:
+          type: string
+          enum: [open, reviewing, actioned, dismissed]
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
