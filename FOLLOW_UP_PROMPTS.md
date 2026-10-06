@@ -5,12 +5,13 @@
 ## Progress note (2026-10-06)
 
 - **Verified:** repo created, API contract (`docs/api/openapi.yaml`) lints clean, architecture, privacy, threat model, screen map and feature matrix written.
-- **Not done yet:** database schema, Worker API, iOS app, CI, staging. See `docs/feature-matrix.md`.
+- **Database (T2):** schema `boulderme` is live in PulseDeals with the Ontario gym list; isolation check passes. Before the API connects, set the `boulderme_api` password (`SETUP.md` section 2).
+- **Not done yet:** Worker API, iOS app, CI, staging. See `docs/feature-matrix.md`.
 - **Next three prompts, in order:** 1, 2, 3 below.
 
-## 1. Build the database schema
+## 1. Build the database schema (done 2026-10-06)
 
-When: now. Prerequisite: Supabase connector connected (done).
+When: done; kept for reference. Prerequisite: Supabase connector connected (done).
 
 ```text
 In zainpi/BoulderMe, do task T2: create the boulderme schema migrations in db/ following docs/domain-model.md and docs/adr/0001-architecture.md. Back up first, apply to the PulseDeals Supabase project, seed the Ontario gym list, and prove anon/authenticated can't read boulderme.*.

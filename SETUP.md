@@ -7,9 +7,33 @@ This guide grows as each part is built. Steps marked **(later)** land with the t
 - API: `docs/api/openapi.yaml`. View it nicely with `npx -y @redocly/cli@2 preview-docs docs/api/openapi.yaml` and open the printed local URL.
 - Decisions: `docs/adr/0001-architecture.md`.
 
-## 2. Database (later, T2)
+## 2. Database
 
-Migrations for schema `boulderme` are applied to the PulseDeals Supabase project after a backup. Steps will cover: taking the backup, applying `db/migrations/*.sql`, setting the `boulderme_api` password, and building `DATABASE_URL` from the pooler connection string (Supabase dashboard → Project → Connect → Transaction pooler).
+Schema `boulderme` already exists in the PulseDeals Supabase project (migration `0001` applied 2026-10-06, Ontario gyms seeded). To run it yourself somewhere else, or to finish the connection for the API:
+
+**Local scratch database (for development and tests)**
+
+```sh
+createdb boulderme_dev
+psql -d boulderme_dev -f db/tests/local_supabase_roles.sql   # stand-ins for Supabase's anon/authenticated roles
+for f in db/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -d boulderme_dev -f "$f"; done
+psql -d boulderme_dev -f db/seeds/gyms_ontario.sql
+PGOPTIONS="-c boulderme.allow_synthetic=on" psql -d boulderme_dev -f db/seeds/dev_synthetic.sql   # never on production
+psql -d boulderme_dev -f db/tests/constraints_test.sql       # every line should say PASS
+psql -d boulderme_dev -f db/tests/isolation_check.sql        # both queries should return 0 rows
+```
+
+**Let the API log in as `boulderme_api` (do this once, before T3's Worker connects)**
+
+The migration creates `boulderme_api` without a password and unable to log in. In the Supabase dashboard, open the PulseDeals project, then SQL Editor, and run (replace the placeholder with a long random password, e.g. from `openssl rand -base64 32`; do not paste it into chat or commit it):
+
+```sql
+alter role boulderme_api with login password '<new password>';
+```
+
+Then build `DATABASE_URL` from Project → Connect → Transaction pooler: user `boulderme_api.mjagaepkilhbmpfdsduw`, port `6543`, database `postgres`, plus the password above. Save it as the Worker secret `DATABASE_URL` (`npx wrangler secret put DATABASE_URL`) and in `api/.dev.vars` for local use.
+
+**New migrations** go in `db/migrations/NNNN_<name>.sql`, each wrapped in `begin; ... commit;` and ending with an insert into `boulderme.schema_migrations`. Apply them with the SQL editor or `psql` as `postgres`, after the backup in `OPERATIONS.md`. Do not use `supabase db push` or the Supabase migrations table: that history belongs to PulseDeals.
 
 ## 3. API (later, T3/T4)
 
