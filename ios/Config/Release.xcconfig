@@ -1,0 +1,7 @@
+#include "Base.xcconfig"
+
+// Production. API_BASE_URL comes from Base.xcconfig; T8 sets the real host.
+BM_ENVIRONMENT = production
+BUNDLE_ID_SUFFIX =
+
+#include? "Local.xcconfig"

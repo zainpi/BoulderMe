@@ -1,0 +1,417 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXContainerItemProxy section */
+		B0E1D0E00000000000000028 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B0E1D0E00000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B0E1D0E00000000000000014;
+			remoteInfo = BoulderMe;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		B0E1D0E0000000000000000A /* BoulderMe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BoulderMe.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B0E1D0E0000000000000000B /* BoulderMeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BoulderMeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B0E1D0E0000000000000003C /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		B0E1D0E0000000000000003D /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		B0E1D0E0000000000000003E /* Staging.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Staging.xcconfig; sourceTree = "<group>"; };
+		B0E1D0E0000000000000003F /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		B0E1D0E00000000000000040 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		B0E1D0E00000000000000005 /* BoulderMe */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = BoulderMe;
+			sourceTree = "<group>";
+		};
+		B0E1D0E00000000000000006 /* BoulderMeTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = BoulderMeTests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		B0E1D0E0000000000000001F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B0E1D0E00000000000000022 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		B0E1D0E00000000000000002 = {
+			isa = PBXGroup;
+			children = (
+				B0E1D0E00000000000000005 /* BoulderMe */,
+				B0E1D0E00000000000000006 /* BoulderMeTests */,
+				B0E1D0E00000000000000004 /* Config */,
+				B0E1D0E00000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B0E1D0E00000000000000004 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				B0E1D0E0000000000000003C /* Base.xcconfig */,
+				B0E1D0E0000000000000003D /* Debug.xcconfig */,
+				B0E1D0E0000000000000003E /* Staging.xcconfig */,
+				B0E1D0E0000000000000003F /* Release.xcconfig */,
+				B0E1D0E00000000000000040 /* Info.plist */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		B0E1D0E00000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B0E1D0E0000000000000000A /* BoulderMe.app */,
+				B0E1D0E0000000000000000B /* BoulderMeTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		B0E1D0E00000000000000014 /* BoulderMe */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B0E1D0E00000000000000033 /* Build configuration list for PBXNativeTarget "BoulderMe" */;
+			buildPhases = (
+				B0E1D0E0000000000000001E /* Sources */,
+				B0E1D0E0000000000000001F /* Frameworks */,
+				B0E1D0E00000000000000020 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				B0E1D0E00000000000000005 /* BoulderMe */,
+			);
+			name = BoulderMe;
+			packageProductDependencies = (
+			);
+			productName = BoulderMe;
+			productReference = B0E1D0E0000000000000000A /* BoulderMe.app */;
+			productType = "com.apple.product-type.application";
+		};
+		B0E1D0E00000000000000015 /* BoulderMeTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B0E1D0E00000000000000034 /* Build configuration list for PBXNativeTarget "BoulderMeTests" */;
+			buildPhases = (
+				B0E1D0E00000000000000021 /* Sources */,
+				B0E1D0E00000000000000022 /* Frameworks */,
+				B0E1D0E00000000000000023 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B0E1D0E00000000000000029 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B0E1D0E00000000000000006 /* BoulderMeTests */,
+			);
+			name = BoulderMeTests;
+			packageProductDependencies = (
+			);
+			productName = BoulderMeTests;
+			productReference = B0E1D0E0000000000000000B /* BoulderMeTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B0E1D0E00000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					B0E1D0E00000000000000014 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					B0E1D0E00000000000000015 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = B0E1D0E00000000000000014;
+					};
+				};
+			};
+			buildConfigurationList = B0E1D0E00000000000000032 /* Build configuration list for PBXProject "BoulderMe" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = B0E1D0E00000000000000002;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = B0E1D0E00000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				B0E1D0E00000000000000014 /* BoulderMe */,
+				B0E1D0E00000000000000015 /* BoulderMeTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B0E1D0E00000000000000020 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B0E1D0E00000000000000023 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B0E1D0E0000000000000001E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B0E1D0E00000000000000021 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B0E1D0E00000000000000029 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B0E1D0E00000000000000014 /* BoulderMe */;
+			targetProxy = B0E1D0E00000000000000028 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		B0E1D0E00000000000000064 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		B0E1D0E00000000000000065 /* Staging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "STAGING $(inherited)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Staging;
+		};
+		B0E1D0E00000000000000066 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		B0E1D0E00000000000000067 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = B0E1D0E0000000000000003D /* Debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		B0E1D0E00000000000000068 /* Staging */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = B0E1D0E0000000000000003E /* Staging.xcconfig */;
+			buildSettings = {
+			};
+			name = Staging;
+		};
+		B0E1D0E00000000000000069 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = B0E1D0E0000000000000003F /* Release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		B0E1D0E0000000000000006A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zainpi.boulderme.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BoulderMe.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BoulderMe";
+			};
+			name = Debug;
+		};
+		B0E1D0E0000000000000006B /* Staging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zainpi.boulderme.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BoulderMe.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BoulderMe";
+			};
+			name = Staging;
+		};
+		B0E1D0E0000000000000006C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zainpi.boulderme.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BoulderMe.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BoulderMe";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B0E1D0E00000000000000032 /* Build configuration list for PBXProject "BoulderMe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B0E1D0E00000000000000064 /* Debug */,
+				B0E1D0E00000000000000065 /* Staging */,
+				B0E1D0E00000000000000066 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B0E1D0E00000000000000033 /* Build configuration list for PBXNativeTarget "BoulderMe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B0E1D0E00000000000000067 /* Debug */,
+				B0E1D0E00000000000000068 /* Staging */,
+				B0E1D0E00000000000000069 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B0E1D0E00000000000000034 /* Build configuration list for PBXNativeTarget "BoulderMeTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B0E1D0E0000000000000006A /* Debug */,
+				B0E1D0E0000000000000006B /* Staging */,
+				B0E1D0E0000000000000006C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = B0E1D0E00000000000000001 /* Project object */;
+}

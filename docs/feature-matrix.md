@@ -21,11 +21,11 @@ Update the Status column in the PR that changes it. "Implemented" means server r
 | Data export | Core | Not started | T4 | T6 | T4, T6 | none |
 | Account deletion (incl. Apple revocation) | Core | Not started | T4 | T6 | T4, T6 | Apple key for revocation |
 | Guided onboarding (state machine, 18+, visibility explainer) | Core | Not started | n/a | T6 | T6 | none |
-| Demo mode | Core | Not started | n/a | T5 | T5 | none |
-| Design system (cozy, Dynamic Type, dark mode, Liquid Glass with fallback) | Core | Not started | n/a | T5 | T5 | none |
+| Demo mode | Core | Implemented | n/a | T5 | T5 | none |
+| Design system (cozy, Dynamic Type, dark mode, Liquid Glass with fallback) | Core | Implemented | n/a | T5 | T5 | none |
 | Database schema in PulseDeals Supabase | Core | Implemented (live; `boulderme_api` can log in since 2026-10-07) | T2 | n/a | T2 | Supabase connector (connected) |
 | Worker deploy (staging, production) | Core | Not started | T8 | n/a | T8 | Cloudflare account + API token |
-| CI (Worker tests, `xcodebuild` on macOS) | Core | Worker job `api` added in T3; rest in T8 | T8 | T8 | T8 | GitHub Actions |
+| CI (Worker tests, `xcodebuild` on macOS) | Core | Jobs `api` (T3) and `ios` (T5) run on PRs; deploy steps in T8 | T8 | T8 | T8 | GitHub Actions |
 | TestFlight build | Core | Not started | n/a | T8 | T8 | Apple Developer Program |
 | Push notifications | Optional | Off | | | | APNs key |
 | Subscriptions / paywall | Optional | Off | | | | App Store Connect agreements |
