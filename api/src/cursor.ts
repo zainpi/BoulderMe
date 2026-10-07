@@ -5,6 +5,7 @@
 import { z } from "zod";
 import type { TimeKey } from "./db/repository";
 import { ApiError } from "./http";
+import { uuid } from "./validation";
 import { base64Decode, base64UrlEncode, sha256Hex } from "./auth/crypto";
 
 const CURSOR_TTL_MS = 24 * 60 * 60 * 1000;
@@ -40,7 +41,7 @@ const invalidCursor = () => new ApiError(400, "invalid_cursor", "The cursor is i
 
 /** Cursor key for lists ordered by a timestamp (millisecond precision) and then an id. */
 export const timeKeySchema = z
-  .strictObject({ at: z.iso.datetime(), id: z.string().regex(/^[0-9a-f-]{36}$/) })
+  .strictObject({ at: z.iso.datetime(), id: uuid })
   .transform((k): TimeKey => ({ at: new Date(k.at), id: k.id }));
 
 export function timeKey(at: Date, id: string): { at: string; id: string } {
