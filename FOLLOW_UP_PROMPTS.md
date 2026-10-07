@@ -5,11 +5,11 @@
 ## Progress note (2026-10-07)
 
 - **Verified:** repo created, API contract (`docs/api/openapi.yaml`) lints clean, architecture, privacy, threat model, screen map and feature matrix written.
-- **Database (T2):** schema `boulderme` is live in PulseDeals with the Ontario gym list; isolation check passes. The `boulderme_api` password was set on 2026-10-07; it goes into the Worker secret `DATABASE_URL` at deploy time (T8).
-- **API (T3):** sign-in, sessions, profile, gyms, availability, pause and discovery are built and tested against a local Postgres (not deployed yet).
-- **iOS (T5, T6):** app shell, demo mode, Sign in with Apple, onboarding, profile, gyms, availability and settings are built and pass CI. They talk to the Worker routes in `docs/api/openapi.yaml`. Settings links to privacy, terms and support point at runsit.ca/boulderme/ (runsIT site PR zainpi/runIT#7; live once that site is deployed).
-- **Not done yet:** invitations, chat, safety and deletion routes (T4), iOS discovery/invites/chat (T7), staging. See `docs/feature-matrix.md`.
-- **Next prompts:** 4 below to try sign-in locally, and "Build the API invitations, chat and safety" from Future ideas.
+- **Database (T2):** schema `boulderme` is live in PulseDeals with the Ontario gym list; isolation check passes. The `boulderme_api` password was set on 2026-10-07; it goes into the Worker secret `DATABASE_URL` at deploy time (T8). Migration `0002_account_deletion` (T4) is in the repo but not applied to PulseDeals yet; apply it before the Worker is deployed.
+- **API (T3, T4):** sign-in, sessions, profile, gyms, availability, pause, discovery, invitations, chat, blocks, reports, data export and account deletion are built and tested against a local Postgres (not deployed yet).
+- **iOS (T5, T6):** app shell, demo mode, Sign in with Apple, onboarding, profile, gyms, availability and settings are built and pass CI. They talk to the Worker routes in `docs/api/openapi.yaml`. Settings links to privacy, terms and support point at runsit.ca/boulderme/ (pages merged in zainpi/runIT#7).
+- **Not done yet:** iOS discovery/invites/chat (T7), staging deploy (T8). See `docs/feature-matrix.md`.
+- **Next prompts:** 4 below to try sign-in locally, then "Apply the account-deletion migration" from Future ideas.
 
 ## 1. Build the database schema (done 2026-10-06)
 
@@ -51,19 +51,19 @@ In zainpi/BoulderMe, run the Worker locally with wrangler dev, turn on Sign in w
 
 Expected result: you sign in, finish onboarding, and see your own card on the Profile tab.
 
-## 5. Publish the privacy, terms and support pages
+## 5. Check the privacy, terms and support pages are live
 
-When: before App Store submission. The pages are in zainpi/runIT PR #7 and the app already links to them.
+When: before App Store submission. The pages were merged in zainpi/runIT#7 and the app already links to them.
 
 ```text
-In zainpi/runIT, merge PR #7 (BoulderMe privacy, terms and support pages) and deploy runsit.ca, then check https://runsit.ca/boulderme/privacy/, /terms/ and /support/ load.
+Check that https://runsit.ca/boulderme/privacy/, /terms/ and /support/ load. If they don't, deploy runsit.ca from zainpi/runIT main.
 ```
 
 Expected result: Settings → About opens the live pages, and the same URLs go into App Store Connect.
 
 ## Future ideas (need earlier steps first)
 
-- **Build the API invitations, chat and safety (T4):** `In zainpi/BoulderMe, do task T4: add invitations, chat, blocks, reports, data export and account deletion to the Worker in api/, exactly as docs/api/openapi.yaml defines them, with tests for every server-side rule.`
+- **Apply the account-deletion migration:** `In zainpi/BoulderMe, apply db/migrations/0002_account_deletion.sql to the PulseDeals Supabase project the same way as 0001 (back up first, record it in boulderme.schema_migrations, rerun the isolation check).`
 - **Understand the app:** `Explain how BoulderMe works end to end, using the docs in zainpi/BoulderMe, in plain language.`
 - **Change the look:** `In zainpi/BoulderMe, make the design [describe the change, e.g. warmer colors, rounder cards] and check it with large text and dark mode.`
 - **Diagnose an error:** `BoulderMe shows this error: [paste the error with any personal data removed]. Find the cause and fix it.`

@@ -2,8 +2,10 @@
 // was issued for, and its issue time. Cursors expire after 24 hours and only work with the
 // same filters (`invalid_cursor` otherwise).
 
-import type { z } from "zod";
+import { z } from "zod";
+import type { TimeKey } from "./db/repository";
 import { ApiError } from "./http";
+import { uuid } from "./validation";
 import { base64Decode, base64UrlEncode, sha256Hex } from "./auth/crypto";
 
 const CURSOR_TTL_MS = 24 * 60 * 60 * 1000;
@@ -36,3 +38,12 @@ export function decodeCursor<S extends z.ZodType>(cursor: string, schema: S, fil
 }
 
 const invalidCursor = () => new ApiError(400, "invalid_cursor", "The cursor is invalid or expired; start from the first page.");
+
+/** Cursor key for lists ordered by a timestamp (millisecond precision) and then an id. */
+export const timeKeySchema = z
+  .strictObject({ at: z.iso.datetime(), id: uuid })
+  .transform((k): TimeKey => ({ at: new Date(k.at), id: k.id }));
+
+export function timeKey(at: Date, id: string): { at: string; id: string } {
+  return { at: at.toISOString(), id };
+}

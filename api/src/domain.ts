@@ -15,6 +15,8 @@ export const LIMITS = {
   gymsPerAccount: 10,
   slotsPerAccount: 21,
   activeRecentlyDays: 14,
+  invitationsPerDay: 20,
+  invitationMaxDaysAhead: 60,
 } as const;
 
 export function slotOverlapsTimeOfDay(slot: Pick<SlotRecord, "startMinute" | "endMinute">, tod: TimeOfDay): boolean {

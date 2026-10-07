@@ -5,6 +5,9 @@ main = "src/index.ts"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
+# Public hostnames live on runsit.ca (docs/api/openapi.yaml `servers`): boulderme-api.runsit.ca and
+# boulderme-api-staging.runsit.ca. T8 adds them as custom-domain routes once runsit.ca is a zone in
+# the Cloudflare account, e.g. routes = [{ pattern = "boulderme-api.runsit.ca", custom_domain = true }].
 
 [vars]
 ENVIRONMENT = "development"
@@ -21,11 +24,8 @@ enabled = true
 name = "boulderme-api-staging"
 vars = { ENVIRONMENT = "staging", APP_VERSION = "0.1.0" }
 triggers = { crons = ["17 4 * * *"] }
-# All BoulderMe URLs live on runsit.ca (its zone must be in this Cloudflare account).
-routes = [{ pattern = "boulderme-api-staging.runsit.ca", custom_domain = true }]
 
 [env.production]
 name = "boulderme-api"
 vars = { ENVIRONMENT = "production", APP_VERSION = "0.1.0" }
 triggers = { crons = ["17 4 * * *"] }
-routes = [{ pattern = "boulderme-api.runsit.ca", custom_domain = true }]
