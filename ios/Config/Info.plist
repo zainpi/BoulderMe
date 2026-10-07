@@ -6,6 +6,12 @@
 	<string>$(BM_ENVIRONMENT)</string>
 	<key>BMAPIBaseURL</key>
 	<string>$(API_BASE_URL)</string>
+	<key>BMPrivacyURL</key>
+	<string>$(PRIVACY_URL)</string>
+	<key>BMTermsURL</key>
+	<string>$(TERMS_URL)</string>
+	<key>BMSupportURL</key>
+	<string>$(SUPPORT_URL)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

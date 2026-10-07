@@ -31,3 +31,8 @@ CODE_SIGN_STYLE = Automatic
 // xcconfig treats `//` as a comment, so URLs use `/$()/`.
 BM_ENVIRONMENT = production
 API_BASE_URL = https:/$()/api.boulderme.app
+
+// Settings → About links. Placeholders until the site exists (see FOLLOW_UP_PROMPTS.md).
+PRIVACY_URL = https:/$()/boulderme.app/privacy
+TERMS_URL = https:/$()/boulderme.app/terms
+SUPPORT_URL = https:/$()/boulderme.app/support

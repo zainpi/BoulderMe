@@ -41,7 +41,11 @@ enum ChatsRoute: Hashable {
 }
 
 enum ProfileRoute: Hashable {
+    case editProfile
+    case gyms
+    case availability
     case settings
+    case deleteAccount
     case designSystem
 }
 

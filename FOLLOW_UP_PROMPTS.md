@@ -6,7 +6,8 @@
 
 - **Verified:** repo created, API contract (`docs/api/openapi.yaml`) lints clean, architecture, privacy, threat model, screen map and feature matrix written.
 - **Database (T2):** schema `boulderme` is live in PulseDeals with the Ontario gym list; isolation check passes. Before the API connects, set the `boulderme_api` password (`SETUP.md` section 2).
-- **Not done yet:** Worker API, iOS app, CI, staging. See `docs/feature-matrix.md`.
+- **iOS (T5, T6):** app shell, demo mode, Sign in with Apple, onboarding, profile, gyms, availability and settings are built and pass CI. They talk to the Worker routes in `docs/api/openapi.yaml`, so they work end to end once the Worker (T3, T4) runs. Settings links to privacy, terms and support still point at placeholder `boulderme.app` pages.
+- **Not done yet:** Worker API, iOS discovery/invites/chat (T7), staging. See `docs/feature-matrix.md`.
 - **Next three prompts, in order:** 1, 2, 3 below.
 
 ## 1. Build the database schema (done 2026-10-06)
@@ -38,6 +39,26 @@ In zainpi/BoulderMe, do task T5: create the SwiftUI app shell in ios/ with the c
 ```
 
 Expected result: the app runs in the simulator and you can tap Explore demo.
+
+## 4. Try sign-in against a local Worker
+
+When: after the Worker sign-in routes (T3) are merged. Prerequisite: a paid Apple Developer team with Sign in with Apple enabled for `com.zainpi.boulderme.debug`.
+
+```text
+In zainpi/BoulderMe, run the Worker locally with wrangler dev, turn on Sign in with Apple for Debug in ios/Config/Local.xcconfig, and walk me through signing in on the simulator and finishing onboarding. Fix anything that doesn't match docs/api/openapi.yaml.
+```
+
+Expected result: you sign in, finish onboarding, and see your own card on the Profile tab.
+
+## 5. Set the privacy, terms and support links
+
+When: once you have pages (or an email address) for them.
+
+```text
+In zainpi/BoulderMe, set PRIVACY_URL, TERMS_URL and SUPPORT_URL in ios/Config/Base.xcconfig to [your privacy page], [your terms page] and [your support page or mailto: address].
+```
+
+Expected result: Settings → About opens your real pages.
 
 ## Future ideas (need earlier steps first)
 
