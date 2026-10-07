@@ -7,7 +7,7 @@
 - **Verified:** repo created, API contract (`docs/api/openapi.yaml`) lints clean, architecture, privacy, threat model, screen map and feature matrix written.
 - **Database (T2):** schema `boulderme` is live in PulseDeals with the Ontario gym list; isolation check passes. The `boulderme_api` password was set on 2026-10-07; it goes into the Worker secret `DATABASE_URL` at deploy time (T8). Migration `0002_account_deletion` (T4) is in the repo but not applied to PulseDeals yet; apply it before the Worker is deployed.
 - **API (T3, T4):** sign-in, sessions, profile, gyms, availability, pause, discovery, invitations, chat, blocks, reports, data export and account deletion are built and tested against a local Postgres (not deployed yet).
-- **iOS (T5, T6, T7):** app shell, demo mode, Sign in with Apple, onboarding, profile, gyms, availability, settings, discovery, invites, chat, blocking and reporting are built and pass CI. They talk to the Worker routes in `docs/api/openapi.yaml`. Settings links to privacy, terms and support still point at placeholder `boulderme.app` pages.
+- **iOS (T5, T6, T7):** app shell, demo mode, Sign in with Apple, onboarding, profile, gyms, availability, settings, discovery, invites, chat, blocking and reporting are built and pass CI. They talk to the Worker routes in `docs/api/openapi.yaml`. Settings links to privacy, terms and support point at runsit.ca/boulderme/ (pages merged in zainpi/runIT#7).
 - **Not done yet:** staging deploy and end-to-end checks (T8). See `docs/feature-matrix.md`.
 - **Next prompts:** 4 below to try sign-in locally, then "Apply the account-deletion migration" from Future ideas.
 
@@ -51,15 +51,15 @@ In zainpi/BoulderMe, run the Worker locally with wrangler dev, turn on Sign in w
 
 Expected result: you sign in, finish onboarding, and see your own card on the Profile tab.
 
-## 5. Set the privacy, terms and support links
+## 5. Check the privacy, terms and support pages are live
 
-When: once you have pages (or an email address) for them.
+When: before App Store submission. The pages were merged in zainpi/runIT#7 and the app already links to them.
 
 ```text
-In zainpi/BoulderMe, set PRIVACY_URL, TERMS_URL and SUPPORT_URL in ios/Config/Base.xcconfig to [your privacy page], [your terms page] and [your support page or mailto: address].
+Check that https://runsit.ca/boulderme/privacy/, /terms/ and /support/ load. If they don't, deploy runsit.ca from zainpi/runIT main.
 ```
 
-Expected result: Settings → About opens your real pages.
+Expected result: Settings → About opens the live pages, and the same URLs go into App Store Connect.
 
 ## Future ideas (need earlier steps first)
 

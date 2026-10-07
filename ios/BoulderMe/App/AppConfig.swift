@@ -9,9 +9,9 @@ struct AppConfig: Sendable {
 
     let environment: Environment
     let apiBaseURL: URL
-    var privacyURL = URL(string: "https://boulderme.app/privacy")!
-    var termsURL = URL(string: "https://boulderme.app/terms")!
-    var supportURL = URL(string: "https://boulderme.app/support")!
+    var privacyURL = URL(string: "https://runsit.ca/boulderme/privacy/")!
+    var termsURL = URL(string: "https://runsit.ca/boulderme/terms/")!
+    var supportURL = URL(string: "https://runsit.ca/boulderme/support/")!
     let version: String
     let build: String
     /// Launch argument `-BMDemo YES` opens straight into demo mode (screenshots, UI tests).
@@ -20,7 +20,7 @@ struct AppConfig: Sendable {
     static func load(bundle: Bundle = .main, arguments: UserDefaults = .standard) -> AppConfig {
         let info = bundle.infoDictionary ?? [:]
         let environment = (info["BMEnvironment"] as? String).flatMap(Environment.init(rawValue:)) ?? .production
-        let fallback = URL(string: "https://api.boulderme.app")!
+        let fallback = URL(string: "https://boulderme-api.runsit.ca")!
         let apiBaseURL = (info["BMAPIBaseURL"] as? String).flatMap(URL.init(string:)) ?? fallback
         var config = AppConfig(
             environment: environment,
