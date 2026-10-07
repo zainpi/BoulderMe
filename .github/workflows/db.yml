@@ -1,0 +1,48 @@
+name: db
+
+on:
+  pull_request:
+    paths: ["db/**", ".github/workflows/db.yml"]
+  push:
+    branches: [main]
+    paths: ["db/**", ".github/workflows/db.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply migrations and seeds
+        run: |
+          psql -v ON_ERROR_STOP=1 -q -f db/tests/local_supabase_roles.sql
+          for f in db/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -q -f "$f"; done
+          psql -v ON_ERROR_STOP=1 -q -f db/seeds/gyms_ontario.sql
+          psql -v ON_ERROR_STOP=1 -q -f db/seeds/gyms_ontario.sql   # idempotent
+          PGOPTIONS="-c boulderme.allow_synthetic=on" psql -v ON_ERROR_STOP=1 -q -f db/seeds/dev_synthetic.sql
+      - name: Constraint tests
+        run: psql -v ON_ERROR_STOP=1 -q -f db/tests/constraints_test.sql
+      - name: Isolation check
+        run: |
+          out=$(psql -v ON_ERROR_STOP=1 -At -f db/tests/isolation_check.sql)
+          if [ -n "$out" ]; then echo "$out"; exit 1; fi
+      - name: Rollback removes everything
+        run: |
+          psql -v ON_ERROR_STOP=1 -q -f db/rollback/drop_boulderme.sql
+          test "$(psql -At -c "select count(*) from pg_namespace where nspname = 'boulderme'")" = 0
+          test "$(psql -At -c "select count(*) from pg_roles where rolname = 'boulderme_api'")" = 0

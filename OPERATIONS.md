@@ -10,17 +10,20 @@ Runbooks for keeping BoulderMe healthy. Sections marked **(later)** get exact co
 
 ## Backup before a migration
 
+With the database password (dashboard → Project Settings → Database):
+
 ```sh
-# DATABASE_ADMIN_URL = the project's direct connection string for the postgres user (from the Supabase dashboard; do not save it in the repo)
+# DATABASE_ADMIN_URL = the project's direct connection string for the postgres user (do not save it in the repo)
 mkdir -p db/backups
 pg_dump "$DATABASE_ADMIN_URL" --schema=boulderme --format=custom --file="db/backups/boulderme-$(date -u +%Y%m%dT%H%M%SZ).dump"
-# First time only, also keep a schema-only snapshot of PulseDeals' public schema plus row counts:
 pg_dump "$DATABASE_ADMIN_URL" --schema=public --schema-only --file="db/backups/public-schema-$(date -u +%Y%m%dT%H%M%SZ).sql"
 ```
 
 `db/backups/` is gitignored. Copy dumps somewhere safe off the laptop.
 
 Restore only BoulderMe: `pg_restore --dbname="$DATABASE_ADMIN_URL" --schema=boulderme --clean <file>.dump`.
+
+**What was done for migration 0001 (2026-10-06).** No database password was available to Claude, so instead of `pg_dump` the pre-migration state of PulseDeals' `public` schema was captured through the Supabase connector: a catalog-derived DDL snapshot (tables, constraints, indexes, functions, triggers, policies, grants) plus a row count and md5 checksum per table. These live in the project's shared files at `boulderme/t2/backup/`. PulseDeals row data was deliberately not copied. After the migration the DDL snapshot was byte-identical and every table's checksum matched, except `pulsedeals_deals`, which PulseDeals' own sync keeps changing (BoulderMe has no access to it). Before migrations that change existing BoulderMe data, take a real `pg_dump` of `boulderme` as above.
 
 ## Health checks
 
@@ -50,9 +53,9 @@ Members delete themselves in Settings → Delete account. If someone asks by ema
 ## Pausing or shutting down
 
 - **Pause the API:** Cloudflare dashboard → Workers → `boulderme-api` → Settings → disable routes, or deploy the maintenance build **(later)**. The app shows its offline state.
-- **Remove BoulderMe from PulseDeals entirely:** back up, then run `db/rollback/drop_boulderme.sql` **(later)**. This drops only schema `boulderme` and role `boulderme_api`.
+- **Remove BoulderMe from PulseDeals entirely:** back up, then run `db/rollback/drop_boulderme.sql` as `postgres`. This drops only schema `boulderme` and role `boulderme_api`.
 
 ## Rollback
 
 - **Worker:** `npx wrangler rollback` to the previous version (no data impact).
-- **Database:** migrations are additive; to undo the latest one, run its paired down script **(later)** or restore the pre-migration `boulderme` dump. PulseDeals data is never affected.
+- **Database:** migrations are additive; to undo the latest one, write a reverse migration or restore the pre-migration `boulderme` dump. PulseDeals data is never affected.
