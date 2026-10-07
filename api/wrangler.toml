@@ -5,9 +5,9 @@ main = "src/index.ts"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
-# Public hostnames live on runsit.ca (docs/api/openapi.yaml `servers`): boulderme-api.runsit.ca and
-# boulderme-api-staging.runsit.ca. T8 adds them as custom-domain routes once runsit.ca is a zone in
-# the Cloudflare account, e.g. routes = [{ pattern = "boulderme-api.runsit.ca", custom_domain = true }].
+# Public hostnames live on runsit.ca (docs/api/openapi.yaml `servers`), bound as Worker custom
+# domains below. runsit.ca must be a zone in the same Cloudflare account; Cloudflare creates the
+# DNS record and certificate on first deploy.
 
 [vars]
 ENVIRONMENT = "development"
@@ -20,12 +20,18 @@ crons = ["17 4 * * *"]
 [observability]
 enabled = true
 
+# Deployed by .github/workflows/deploy-staging.yml. APPLE_BUNDLE_ID is public, so it is a var here.
 [env.staging]
 name = "boulderme-api-staging"
-vars = { ENVIRONMENT = "staging", APP_VERSION = "0.1.0" }
+workers_dev = false
+routes = [{ pattern = "boulderme-api-staging.runsit.ca", custom_domain = true }]
+vars = { ENVIRONMENT = "staging", APP_VERSION = "0.1.0", APPLE_BUNDLE_ID = "com.zainpi.boulderme.staging" }
 triggers = { crons = ["17 4 * * *"] }
 
+# Not deployed yet; production waits for the owner's go.
 [env.production]
 name = "boulderme-api"
-vars = { ENVIRONMENT = "production", APP_VERSION = "0.1.0" }
+workers_dev = false
+routes = [{ pattern = "boulderme-api.runsit.ca", custom_domain = true }]
+vars = { ENVIRONMENT = "production", APP_VERSION = "0.1.0", APPLE_BUNDLE_ID = "com.zainpi.boulderme" }
 triggers = { crons = ["17 4 * * *"] }

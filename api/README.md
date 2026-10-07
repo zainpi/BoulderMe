@@ -34,6 +34,7 @@ The Postgres suites truncate every `boulderme` table, so only point them at a sc
 | `src/db/repository.ts` | Storage interface; `postgres.ts` (production) and `memory.ts` (tests) implement it |
 | `src/validation.ts` | Request schemas (zod), mirroring the OpenAPI input schemas |
 | `src/cursor.ts`, `src/idempotency.ts`, `src/domain.ts`, `src/wire.ts` | Cursors, `Idempotency-Key`, shared product rules, wire mapping |
+| `e2e/staging-check.mjs` | End-to-end check run against staging by `deploy-staging` (SETUP.md §5) |
 | `test/` | Route tests. Each suite runs against both repositories; every response is checked against `openapi.yaml` |
 
 ## Rules worth knowing

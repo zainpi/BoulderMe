@@ -25,6 +25,12 @@ Restore only BoulderMe: `pg_restore --dbname="$DATABASE_ADMIN_URL" --schema=boul
 
 **What was done for migration 0001 (2026-10-06).** No database password was available to Claude, so instead of `pg_dump` the pre-migration state of PulseDeals' `public` schema was captured through the Supabase connector: a catalog-derived DDL snapshot (tables, constraints, indexes, functions, triggers, policies, grants) plus a row count and md5 checksum per table. These live in the project's shared files at `boulderme/t2/backup/`. PulseDeals row data was deliberately not copied. After the migration the DDL snapshot was byte-identical and every table's checksum matched, except `pulsedeals_deals`, which PulseDeals' own sync keeps changing (BoulderMe has no access to it). Before migrations that change existing BoulderMe data, take a real `pg_dump` of `boulderme` as above.
 
+## Staging
+
+- **Deploy and check:** GitHub → Actions → `deploy-staging` → Run workflow. Green means the Worker is live at https://boulderme-api-staging.runsit.ca and every end-to-end check passed. It also runs on pushes to `main` that touch `api/`.
+- **A check failed:** open the run's "End-to-end check" step; each line says `PASS` or `FAIL` and what was expected. If it ends with "Leftover test accounts", find them with `select a.id from boulderme.accounts a join boulderme.profiles p on p.account_id = a.id where p.display_name like 'E2E %';` and run `select boulderme.delete_account('<id>', now());` for each.
+- **Roll back staging:** `npx wrangler rollback --env staging` from `api/`.
+
 ## Health checks
 
 - **Daily:** `GET /v1/health` returns `status: ok` and `database: ok`. Check open reports (below).

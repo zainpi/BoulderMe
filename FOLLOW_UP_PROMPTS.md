@@ -8,7 +8,8 @@
 - **Database (T2):** schema `boulderme` is live in PulseDeals with the Ontario gym list; isolation check passes. The `boulderme_api` password was set on 2026-10-07; it goes into the Worker secret `DATABASE_URL` at deploy time (T8). Migration `0002_account_deletion` (T4) is in the repo but not applied to PulseDeals yet; apply it before the Worker is deployed.
 - **API (T3, T4):** sign-in, sessions, profile, gyms, availability, pause, discovery, invitations, chat, blocks, reports, data export and account deletion are built and tested against a local Postgres (not deployed yet).
 - **iOS (T5, T6, T7):** app shell, demo mode, Sign in with Apple, onboarding, profile, gyms, availability, settings, discovery, invites, chat, blocking and reporting are built and pass CI. They talk to the Worker routes in `docs/api/openapi.yaml`. Settings links to privacy, terms and support point at runsit.ca/boulderme/ (pages merged in zainpi/runIT#7).
-- **Not done yet:** staging deploy and end-to-end checks (T8). See `docs/feature-matrix.md`.
+- **Staging (T8):** workflow `deploy-staging` deploys the Worker to https://boulderme-api-staging.runsit.ca and runs a three-climber end-to-end check (passes against a local Worker). The first real run needs the GitHub secrets in `SETUP.md` §5 and migration 0002 applied.
+- **Not done yet:** first staging run, production deploy, TestFlight. See `docs/feature-matrix.md`.
 - **Next prompts:** 4 below to try sign-in locally, then "Apply the account-deletion migration" from Future ideas.
 
 ## 1. Build the database schema (done 2026-10-06)
@@ -68,4 +69,4 @@ Expected result: Settings → About opens the live pages, and the same URLs go i
 - **Change the look:** `In zainpi/BoulderMe, make the design [describe the change, e.g. warmer colors, rounder cards] and check it with large text and dark mode.`
 - **Diagnose an error:** `BoulderMe shows this error: [paste the error with any personal data removed]. Find the cause and fix it.`
 - **Security review:** `Review zainpi/BoulderMe against docs/threat-model.md and report anything not yet mitigated.`
-- **Go live on staging:** `Deploy the BoulderMe Worker to Cloudflare staging and walk me through the account steps I must do myself.`
+- **Re-check staging:** `Run the deploy-staging workflow in zainpi/BoulderMe and fix whatever the end-to-end check reports.`

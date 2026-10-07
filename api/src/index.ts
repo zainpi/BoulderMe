@@ -2,7 +2,8 @@
 // sockets between requests) and closed after the response is sent.
 
 import { handle, type Config, type Deps } from "./app";
-import { LiveAppleClient } from "./auth/apple";
+import { LiveAppleClient, type AppleClient } from "./auth/apple";
+import { StagingTestAppleClient } from "./auth/e2e";
 import { connect, PostgresRepository } from "./db/postgres";
 import { ApiError, errorResponse } from "./http";
 import { revokeAppleTokens } from "./revocation";
@@ -18,6 +19,8 @@ export interface Env {
   APPLE_TEAM_ID?: string;
   APPLE_KEY_ID?: string;
   APPLE_PRIVATE_KEY?: string;
+  /** Staging only: lets the end-to-end check sign in test climbers (src/auth/e2e.ts). */
+  E2E_IDENTITY_KEY?: string;
 }
 
 const log = (entry: Record<string, unknown>) => console.log(JSON.stringify(entry));
@@ -28,6 +31,18 @@ function missingSecrets(env: Env): string[] {
   // Storing Apple's refresh token (for revocation on deletion) needs the encryption key.
   if (env.APPLE_PRIVATE_KEY && !env.APPLE_TOKEN_ENCRYPTION_KEY) missing.push("APPLE_TOKEN_ENCRYPTION_KEY");
   return missing;
+}
+
+export function appleClient(env: Env): AppleClient {
+  const live = new LiveAppleClient({
+    bundleId: env.APPLE_BUNDLE_ID ?? "",
+    teamId: env.APPLE_TEAM_ID,
+    keyId: env.APPLE_KEY_ID,
+    privateKey: env.APPLE_PRIVATE_KEY,
+  });
+  // Never outside staging, even if the secret is set by mistake.
+  if (env.ENVIRONMENT !== "staging" || !env.E2E_IDENTITY_KEY) return live;
+  return new StagingTestAppleClient(live, env.APPLE_BUNDLE_ID ?? "", env.E2E_IDENTITY_KEY);
 }
 
 function config(env: Env): Config {
@@ -52,12 +67,7 @@ export default {
     const deps: Deps = {
       repo: new PostgresRepository(sql),
       config: config(env),
-      apple: new LiveAppleClient({
-        bundleId: env.APPLE_BUNDLE_ID!,
-        teamId: env.APPLE_TEAM_ID,
-        keyId: env.APPLE_KEY_ID,
-        privateKey: env.APPLE_PRIVATE_KEY,
-      }),
+      apple: appleClient(env),
       now: () => new Date(),
       log,
     };
@@ -75,9 +85,7 @@ export default {
       const repo = new PostgresRepository(sql);
       const now = new Date();
       const purged = await repo.purgeExpired(now);
-      const apple = new LiveAppleClient({
-        bundleId: env.APPLE_BUNDLE_ID ?? "", teamId: env.APPLE_TEAM_ID, keyId: env.APPLE_KEY_ID, privateKey: env.APPLE_PRIVATE_KEY,
-      });
+      const apple = appleClient(env);
       const revocations = await revokeAppleTokens(
         { repo, apple, encryptionKey: env.APPLE_TOKEN_ENCRYPTION_KEY ?? null, log }, now, { limit: 100 },
       );

@@ -24,8 +24,8 @@ Update the Status column in the PR that changes it. "Implemented" means server r
 | Demo mode | Core | Implemented | n/a | T5 | T5 | none |
 | Design system (cozy, Dynamic Type, dark mode, Liquid Glass with fallback) | Core | Implemented | n/a | T5 | T5 | none |
 | Database schema in PulseDeals Supabase | Core | Implemented (live; `boulderme_api` can log in since 2026-10-07) | T2 | n/a | T2 | Supabase connector (connected) |
-| Worker deploy (staging, production) | Core | Not started | T8 | n/a | T8 | Cloudflare account + API token |
-| CI (Worker tests, `xcodebuild` on macOS) | Core | Jobs `api` (T3) and `ios` (T5) run on PRs; deploy steps in T8 | T8 | T8 | T8 | GitHub Actions |
+| Worker deploy (staging, production) | Core | Staging: workflow `deploy-staging` deploys to boulderme-api-staging.runsit.ca and runs `api/e2e/staging-check.mjs` (verified against a local Worker; first real run waits on the GitHub secrets). Production: not deployed | T8 | n/a | T8 | Cloudflare API token, `STAGING_DATABASE_URL` GitHub secret |
+| CI (Worker tests, `xcodebuild` on macOS) | Core | Jobs `api` (T3) and `ios` (T5) run on PRs; `deploy-staging` runs on pushes to main that touch `api/` | T8 | T8 | T8 | GitHub Actions |
 | TestFlight build | Core | Not started | n/a | T8 | T8 | Apple Developer Program |
 | Push notifications | Optional | Off | | | | APNs key |
 | Subscriptions / paywall | Optional | Off | | | | App Store Connect agreements |
