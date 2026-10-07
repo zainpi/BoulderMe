@@ -54,7 +54,8 @@ final class DemoBackendTests: XCTestCase {
 
     func testBlockHidesProfileChatAndInvitesBothWays() async throws {
         let backend = makeBackend()
-        let chatId = try XCTUnwrap(try await backend.chats(cursor: nil).items.first { $0.otherMember.accountId == theo }?.chatId)
+        let before = try await backend.chats(cursor: nil).items
+        let chatId = try XCTUnwrap(before.first { $0.otherMember.accountId == theo }?.chatId)
         _ = try await backend.block(accountId: theo)
 
         let chats = try await backend.chats(cursor: nil).items
@@ -72,7 +73,8 @@ final class DemoBackendTests: XCTestCase {
         let backend = makeBackend()
         _ = try await backend.block(accountId: theo)
         try await backend.unblock(accountId: theo)
-        let chat = try XCTUnwrap(try await backend.chats(cursor: nil).items.first { $0.otherMember.accountId == theo })
+        let chats = try await backend.chats(cursor: nil).items
+        let chat = try XCTUnwrap(chats.first { $0.otherMember.accountId == theo })
         XCTAssertEqual(chat.status, .closed)
         XCTAssertNil(chat.upcomingSession, "The block cancelled the accepted session")
         do {
@@ -135,7 +137,8 @@ final class DemoBackendTests: XCTestCase {
 
     func testOnlyTheRecipientCanAcceptAndSenderCannotCancelAccepted() async throws {
         let backend = makeBackend()
-        let outgoing = try XCTUnwrap(try await backend.invitations(box: .outgoing, cursor: nil).items.first { $0.status == .pending })
+        let sent = try await backend.invitations(box: .outgoing, cursor: nil).items
+        let outgoing = try XCTUnwrap(sent.first { $0.status == .pending })
         do {
             _ = try await backend.accept(id: outgoing.invitationId)
             XCTFail("The sender can't accept")
