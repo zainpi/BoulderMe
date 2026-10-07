@@ -1,0 +1,28 @@
+# Cloudflare Worker for the BoulderMe API. Deployed in T8; secrets are set with
+# `npx wrangler secret put <NAME>` (names in ../.env.example), never in this file.
+name = "boulderme-api"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[vars]
+ENVIRONMENT = "development"
+APP_VERSION = "0.1.0"
+
+# Daily housekeeping: expired nonces, rate-limit windows, idempotency keys, old sessions.
+[triggers]
+crons = ["17 4 * * *"]
+
+[observability]
+enabled = true
+
+[env.staging]
+name = "boulderme-api-staging"
+vars = { ENVIRONMENT = "staging", APP_VERSION = "0.1.0" }
+triggers = { crons = ["17 4 * * *"] }
+
+[env.production]
+name = "boulderme-api"
+vars = { ENVIRONMENT = "production", APP_VERSION = "0.1.0" }
+triggers = { crons = ["17 4 * * *"] }

@@ -2,13 +2,14 @@
 
 **How to use this file:** copy one prompt below (the text inside a grey box) and paste it into your BoulderMe project chat, or into a new chat that has access to the `zainpi/BoulderMe` repo. Replace anything in `[square brackets]` first. Never paste passwords, API keys or tokens into a prompt.
 
-## Progress note (2026-10-06)
+## Progress note (2026-10-07)
 
 - **Verified:** repo created, API contract (`docs/api/openapi.yaml`) lints clean, architecture, privacy, threat model, screen map and feature matrix written.
-- **Database (T2):** schema `boulderme` is live in PulseDeals with the Ontario gym list; isolation check passes. Before the API connects, set the `boulderme_api` password (`SETUP.md` section 2).
-- **iOS (T5, T6):** app shell, demo mode, Sign in with Apple, onboarding, profile, gyms, availability and settings are built and pass CI. They talk to the Worker routes in `docs/api/openapi.yaml`, so they work end to end once the Worker (T3, T4) runs. Settings links to privacy, terms and support still point at placeholder `boulderme.app` pages.
-- **Not done yet:** Worker API, iOS discovery/invites/chat (T7), staging. See `docs/feature-matrix.md`.
-- **Next three prompts, in order:** 1, 2, 3 below.
+- **Database (T2):** schema `boulderme` is live in PulseDeals with the Ontario gym list; isolation check passes. The `boulderme_api` password was set on 2026-10-07; it goes into the Worker secret `DATABASE_URL` at deploy time (T8).
+- **API (T3):** sign-in, sessions, profile, gyms, availability, pause and discovery are built and tested against a local Postgres (not deployed yet).
+- **iOS (T5, T6):** app shell, demo mode, Sign in with Apple, onboarding, profile, gyms, availability and settings are built and pass CI. They talk to the Worker routes in `docs/api/openapi.yaml`. Settings links to privacy, terms and support still point at placeholder `boulderme.app` pages.
+- **Not done yet:** invitations, chat, safety and deletion routes (T4), iOS discovery/invites/chat (T7), staging. See `docs/feature-matrix.md`.
+- **Next prompts:** 4 below to try sign-in locally, and "Build the API invitations, chat and safety" from Future ideas.
 
 ## 1. Build the database schema (done 2026-10-06)
 
@@ -20,9 +21,9 @@ In zainpi/BoulderMe, do task T2: create the boulderme schema migrations in db/ f
 
 Expected result: migrations merged, schema live in PulseDeals, a grant check that passes.
 
-## 2. Build the API sign-in, profiles and discovery
+## 2. Build the API sign-in, profiles and discovery (done 2026-10-07)
 
-When: after prompt 1. Prerequisite: none for local tests.
+When: done; kept for reference. Prerequisite: none for local tests.
 
 ```text
 In zainpi/BoulderMe, do task T3: build the Cloudflare Worker in api/ for auth, profile, gyms, availability and discovery routes exactly as docs/api/openapi.yaml defines them, with vitest tests and an in-memory repository.
@@ -62,6 +63,7 @@ Expected result: Settings → About opens your real pages.
 
 ## Future ideas (need earlier steps first)
 
+- **Build the API invitations, chat and safety (T4):** `In zainpi/BoulderMe, do task T4: add invitations, chat, blocks, reports, data export and account deletion to the Worker in api/, exactly as docs/api/openapi.yaml defines them, with tests for every server-side rule.`
 - **Understand the app:** `Explain how BoulderMe works end to end, using the docs in zainpi/BoulderMe, in plain language.`
 - **Change the look:** `In zainpi/BoulderMe, make the design [describe the change, e.g. warmer colors, rounder cards] and check it with large text and dark mode.`
 - **Diagnose an error:** `BoulderMe shows this error: [paste the error with any personal data removed]. Find the cause and fix it.`

@@ -35,13 +35,15 @@ Then build `DATABASE_URL` from Project → Connect → Transaction pooler: user 
 
 **New migrations** go in `db/migrations/NNNN_<name>.sql`, each wrapped in `begin; ... commit;` and ending with an insert into `boulderme.schema_migrations`. Apply them with the SQL editor or `psql` as `postgres`, after the backup in `OPERATIONS.md`. Do not use `supabase db push` or the Supabase migrations table: that history belongs to PulseDeals.
 
-## 3. API (later, T3/T4)
+## 3. API
 
 1. Install Node 22: https://nodejs.org
 2. `cd api && npm install`
-3. Copy names from `.env.example` into `api/.dev.vars` (gitignored) and fill in local values.
-4. `npm test`, then `npx wrangler dev` to serve on `http://localhost:8787`.
-5. Check: `curl http://localhost:8787/v1/health`.
+3. `npm test` (no database needed; see `api/README.md` to also run the tests against a local Postgres).
+4. For `wrangler dev`, create `api/.dev.vars` (gitignored) with the names from `.env.example`. Local values: `DATABASE_URL` pointing at your scratch database as `boulderme_api`, random keys from `openssl rand -base64 32` for `ACCESS_TOKEN_SIGNING_KEY`, `APPLE_TOKEN_ENCRYPTION_KEY` and `RATE_LIMIT_SALT`, and `APPLE_BUNDLE_ID` set to the app's bundle id. The Apple key values can stay empty until T8.
+5. `npx wrangler dev` serves on `http://localhost:8787`. Check: `curl http://localhost:8787/v1/health`.
+
+Deploying (T8) needs the `boulderme_api` password from section 2 and your Cloudflare account; `npm run deploy:dry-run` only bundles.
 
 ## 4. iOS app
 
