@@ -55,6 +55,25 @@ Deploying (T8) needs the `boulderme_api` password from section 2 and your Cloudf
 
 From the command line: `xcodebuild -project ios/BoulderMe.xcodeproj -scheme BoulderMe -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test`.
 
-## 5. Cloudflare and Apple (later, T8)
+## 5. Staging on Cloudflare
 
-Covered when staging is deployed: creating the Cloudflare API token, adding GitHub secrets, enabling Sign in with Apple for the bundle id, and uploading to TestFlight. You sign in, accept terms and handle payment screens yourself; never paste secrets into chat.
+Staging is https://boulderme-api-staging.runsit.ca, a Worker custom domain in the Cloudflare account that already serves runsit.ca. GitHub Actions deploys it (`.github/workflows/deploy-staging.yml`) by hand from the Actions tab, and on every push to `main` that touches `api/`.
+
+One-time setup, all done by you (never paste these values into chat):
+
+1. **Cloudflare API token.** Cloudflare dashboard → My Profile → API Tokens → Create Token → template **Edit Cloudflare Workers**. Under Zone Resources pick `runsit.ca`. Create it and copy the token.
+2. **GitHub secrets** on `zainpi/BoulderMe` → Settings → Secrets and variables → Actions → New repository secret:
+   - `CLOUDFLARE_API_TOKEN`: the token from step 1.
+   - `CLOUDFLARE_ACCOUNT_ID`: the Account ID shown in the Cloudflare dashboard sidebar (Workers & Pages overview).
+   - `STAGING_DATABASE_URL`: the `boulderme_api` pooler URL from section 2.
+3. Actions → **deploy-staging** → Run workflow.
+
+The first run generates `ACCESS_TOKEN_SIGNING_KEY`, `APPLE_TOKEN_ENCRYPTION_KEY` and `RATE_LIMIT_SALT` as Worker secrets and keeps them afterwards. `APPLE_BUNDLE_ID` is a plain var in `api/wrangler.toml` (`com.zainpi.boulderme.staging`); don't also add it as a secret.
+
+Each run deploys, waits for `/v1/health` to report `database: ok`, then runs `api/e2e/staging-check.mjs`: three test climbers sign in through a staging-only test login, go through invite → accept → chat → block, and probe the isolation and failure paths, and then every test account is deleted. The test login's key is random per run and removed when the run ends. To run the same check on your machine against `wrangler dev --env staging`, put any `E2E_IDENTITY_KEY` in `api/.dev.vars` and run `API_BASE_URL=http://localhost:8787 E2E_IDENTITY_KEY=<same> APPLE_BUNDLE_ID=com.zainpi.boulderme.staging node e2e/staging-check.mjs` from `api/`.
+
+Staging and (later) production use the same `boulderme` schema, because BoulderMe gets one schema in PulseDeals. Test climbers are named `E2E …` and deleted by the check; deleted accounts leave a small tombstone row.
+
+## 6. Apple (later)
+
+Real Sign in with Apple, the Apple key for revocation (`APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` Worker secrets) and TestFlight wait for the Apple Developer Program enrollment. You sign in, accept terms and handle payment screens yourself.

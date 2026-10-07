@@ -25,9 +25,10 @@ The app is untrusted. The Worker is the only component that talks to the databas
 | # | Threat | Mitigation | Verified by |
 |---|---|---|---|
 | S1 | Forged or replayed Apple identity token | Verify signature against Apple JWKS, `iss`, `aud` = bundle id, `exp`, and nonce claim = SHA-256 of a single-use server nonce | T3 auth tests |
+| S1b | Staging test sign-in used to create accounts | Only installed when `ENVIRONMENT` is `staging` and the Worker secret `E2E_IDENTITY_KEY` is set; HS256 tokens need that key, issuer `boulderme-e2e`, the staging bundle id and an `e2e-` subject; the key is random per `deploy-staging` run and removed when the run ends | `test/e2e-signin.test.ts` |
 | S2 | Stolen refresh token | Hashed at rest, single-use rotation, reuse revokes the family, 60 day expiry, sign-out revokes | T3 rotation tests |
 | S3 | Access token theft | 15 minute TTL; Keychain storage; HTTPS only | Config review |
-| T1 | Client tampers with ids to read or write another member's data | Every query is scoped by the authenticated `account_id`; no client-supplied owner ids | T3/T4 two-account isolation tests |
+| T1 | Client tampers with ids to read or write another member's data | Every query is scoped by the authenticated `account_id`; no client-supplied owner ids | T3/T4 two-account isolation tests; `api/e2e/staging-check.mjs` on staging |
 | T2 | Bypassing product rules (chat before acceptance, inviting a blocked member) | Rules enforced in the Worker inside transactions, plus DB constraints (partial unique index for open invites, check constraints) | T4 rule tests |
 | R1 | Abuser denies sending harassing messages | Report stores a message snapshot and ids at report time | T4 report tests |
 | I1 | Discovery leaks private data | Discovery returns only `ProfileCard` fields; no location, no exact last-seen; blocked/paused hidden; `not_found` for anything hidden | T3 discovery tests |
