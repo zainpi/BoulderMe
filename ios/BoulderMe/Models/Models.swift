@@ -189,13 +189,28 @@ struct InvitationInput: Codable, Hashable, Sendable {
     var proposedStartAt: Date
     var durationMinutes: Int = 120
     var note: String?
+
+    // `note` is nullable, so send `null` rather than leaving it out.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(recipientAccountId, forKey: .recipientAccountId)
+        try container.encode(gymId, forKey: .gymId)
+        try container.encode(proposedStartAt, forKey: .proposedStartAt)
+        try container.encode(durationMinutes, forKey: .durationMinutes)
+        try container.encode(note, forKey: .note)
+    }
 }
 
+/// The other member on invitations and chats. After they delete their account,
+/// `displayName` is "Deleted climber" and both grades are `nil`.
 struct InvitationParty: Codable, Hashable, Sendable {
     var accountId: EntityID
     var displayName: String
-    var gradeMin: Grade
-    var gradeMax: Grade
+    var gradeMin: Grade?
+    var gradeMax: Grade?
+
+    /// The server sends no grades once the member has deleted their account.
+    var isDeleted: Bool { gradeMin == nil && gradeMax == nil }
 }
 
 struct Invitation: Codable, Hashable, Sendable, Identifiable {
@@ -213,6 +228,15 @@ struct Invitation: Codable, Hashable, Sendable, Identifiable {
     var expiresAt: Date
 
     var id: EntityID { invitationId }
+
+    var endsAt: Date { proposedStartAt.addingTimeInterval(TimeInterval(durationMinutes * 60)) }
+
+    /// The member on the other side, as seen by `accountId`.
+    func other(than accountId: EntityID?) -> InvitationParty {
+        sender.accountId == accountId ? recipient : sender
+    }
+
+    func isIncoming(for accountId: EntityID?) -> Bool { recipient.accountId == accountId }
 }
 
 // MARK: Chats
@@ -267,6 +291,18 @@ enum ReportReason: String, Codable, CaseIterable, Sendable, Identifiable {
     case underage
     case other
     var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .harassment: "Harassment or bullying"
+        case .inappropriateContent: "Inappropriate content"
+        case .spam: "Spam or scam"
+        case .fakeProfile: "Fake profile"
+        case .safetyConcern: "Safety concern"
+        case .underage: "May be under 18"
+        case .other: "Something else"
+        }
+    }
 }
 
 struct ReportInput: Codable, Hashable, Sendable {
@@ -276,6 +312,17 @@ struct ReportInput: Codable, Hashable, Sendable {
     var messageId: EntityID?
     var reason: ReportReason
     var details: String?
+
+    // Nullable fields are always present on the wire.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(reportedAccountId, forKey: .reportedAccountId)
+        try container.encode(context, forKey: .context)
+        try container.encode(invitationId, forKey: .invitationId)
+        try container.encode(messageId, forKey: .messageId)
+        try container.encode(reason, forKey: .reason)
+        try container.encode(details, forKey: .details)
+    }
 }
 
 struct Report: Codable, Hashable, Sendable, Identifiable {

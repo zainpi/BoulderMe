@@ -88,3 +88,17 @@ func makeDefaults() -> UserDefaults {
     let name = "test-\(UUID().uuidString)"
     return UserDefaults(suiteName: name)!
 }
+
+/// A clock tests can move forward.
+final class TestClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var current: Date
+
+    init(_ start: Date) { current = start }
+
+    var now: Date { lock.withLock { current } }
+
+    func advance(by seconds: TimeInterval) {
+        lock.withLock { current = current.addingTimeInterval(seconds) }
+    }
+}

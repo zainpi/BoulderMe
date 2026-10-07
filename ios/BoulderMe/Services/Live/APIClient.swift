@@ -65,6 +65,8 @@ actor APIClient {
     private let transport: any HTTPTransport
     private let store: any SessionStore
     private let now: @Sendable () -> Date
+    /// Sent as `X-Client-Installation-Id` so the Worker can rate limit per install.
+    private let installationId: EntityID?
     private var session: Session?
     private var refreshTask: Task<Session, Error>?
     private let decoder = APICoding.makeDecoder()
@@ -80,8 +82,10 @@ actor APIClient {
     static let refreshLeeway: TimeInterval = 30
 
     init(baseURL: URL, transport: any HTTPTransport = URLSessionTransport(),
-         store: any SessionStore, now: @escaping @Sendable () -> Date = { Date() }) {
+         store: any SessionStore, installationId: EntityID? = nil,
+         now: @escaping @Sendable () -> Date = { Date() }) {
         self.baseURL = baseURL
+        self.installationId = installationId
         self.transport = transport
         self.store = store
         self.now = now
@@ -194,6 +198,7 @@ actor APIClient {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
         if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        if let installationId { request.setValue(installationId.description, forHTTPHeaderField: "X-Client-Installation-Id") }
         if let key = endpoint.idempotencyKey {
             request.setValue(key.uuidString.lowercased(), forHTTPHeaderField: "Idempotency-Key")
         }

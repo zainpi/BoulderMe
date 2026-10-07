@@ -82,4 +82,4 @@ Onboarding is a state machine (`OnboardingStep` enum) persisted per account; it 
 
 ## Demo mode
 
-Entered from Welcome. A persistent "Demo" label in the navigation bar; fixtures include a handful of synthetic climbers at two fictional gyms. Any action needing a real account opens Sign in and returns to the action afterwards. Demo data never mixes with an account's cache.
+Entered from Welcome. A persistent "Demo" label in the navigation bar; fixtures include a handful of synthetic climbers at two fictional gyms. The demo climbers play their side: invites you send are accepted after a few seconds and your messages get a reply, so the whole invite → accept → chat → block flow works without an account. Any action needing a real account opens Sign in and returns to the action afterwards. Demo data never mixes with an account's cache.

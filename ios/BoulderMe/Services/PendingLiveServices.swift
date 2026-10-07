@@ -1,9 +1,7 @@
 import Foundation
 
-/// Stand-in for the T7 areas (discovery, invitations, chats, safety) until T7
-/// adds them to `LiveServices`. Every call
-/// throws `AppError.notImplemented`, so signed-in screens show a friendly
-/// "coming soon" state instead of crashing.
+/// A container where every call throws `AppError.notImplemented`. Used by
+/// SwiftUI previews and tests that must never reach the network.
 final class PendingLiveServices: AccountService, ProfileService, GymService, AvailabilityService,
     DiscoveryService, InvitationService, ChatService, SafetyService, @unchecked Sendable {
     let baseURL: URL
@@ -52,5 +50,5 @@ final class PendingLiveServices: AccountService, ProfileService, GymService, Ava
     func blocks(cursor: String?) async throws -> Page<Block> { try pending() }
     func block(accountId: EntityID) async throws -> Block { try pending() }
     func unblock(accountId: EntityID) async throws { throw AppError.notImplemented }
-    func report(_ input: ReportInput) async throws -> Report { try pending() }
+    func report(_ input: ReportInput, idempotencyKey: UUID) async throws -> Report { try pending() }
 }

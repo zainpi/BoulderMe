@@ -7,8 +7,8 @@
 - **Verified:** repo created, API contract (`docs/api/openapi.yaml`) lints clean, architecture, privacy, threat model, screen map and feature matrix written.
 - **Database (T2):** schema `boulderme` is live in PulseDeals with the Ontario gym list; isolation check passes. The `boulderme_api` password was set on 2026-10-07; it goes into the Worker secret `DATABASE_URL` at deploy time (T8).
 - **API (T3):** sign-in, sessions, profile, gyms, availability, pause and discovery are built and tested against a local Postgres (not deployed yet).
-- **iOS (T5, T6):** app shell, demo mode, Sign in with Apple, onboarding, profile, gyms, availability and settings are built and pass CI. They talk to the Worker routes in `docs/api/openapi.yaml`. Settings links to privacy, terms and support still point at placeholder `boulderme.app` pages.
-- **Not done yet:** invitations, chat, safety and deletion routes (T4), iOS discovery/invites/chat (T7), staging. See `docs/feature-matrix.md`.
+- **iOS (T5, T6, T7):** app shell, demo mode, Sign in with Apple, onboarding, profile, gyms, availability, settings, discovery, invites, chat, blocking and reporting are built and pass CI. They talk to the Worker routes in `docs/api/openapi.yaml`. Settings links to privacy, terms and support still point at placeholder `boulderme.app` pages.
+- **Not done yet:** invitations, chat, safety and deletion routes (T4, in review), staging. See `docs/feature-matrix.md`.
 - **Next prompts:** 4 below to try sign-in locally, and "Build the API invitations, chat and safety" from Future ideas.
 
 ## 1. Build the database schema (done 2026-10-06)

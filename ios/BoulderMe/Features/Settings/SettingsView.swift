@@ -23,6 +23,7 @@ struct SettingsView: View {
             }
             discoverySection
             Section("Safety") {
+                NavigationLink("Blocked climbers", value: ProfileRoute.blockedClimbers)
                 Button("Safety tips") { app.router.sheet = .safetyTips }
             }
             dataSection

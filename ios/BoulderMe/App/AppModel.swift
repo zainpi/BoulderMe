@@ -26,6 +26,8 @@ final class AppModel {
 
     private(set) var pendingInviteCount = 0
     private(set) var unreadChatCount = 0
+    /// Bumped after a block, so lists that may show that member reload.
+    private(set) var blockRevision = 0
     private(set) var accountId: EntityID?
     /// Set while `mode == .onboarding`.
     private(set) var onboarding: OnboardingModel?
@@ -79,7 +81,7 @@ final class AppModel {
         let defaults = UserDefaults.standard
         let store = KeychainSessionStore()
         Installation.clearStaleSession(store: store, defaults: defaults)
-        let client = APIClient(baseURL: config.apiBaseURL, store: store)
+        let client = APIClient(baseURL: config.apiBaseURL, store: store, installationId: Installation.id(in: defaults))
         return AppModel(config: config, auth: client, liveServices: LiveServices(client: client).container,
                         defaults: defaults)
     }
@@ -241,6 +243,12 @@ final class AppModel {
         pendingInviteCount = me.pendingIncomingInvitationCount
         unreadChatCount = me.unreadChatCount
         if mode == .account { accountCache?.set(me, for: "me") }
+    }
+
+    /// A block hides the member everywhere: lists keyed on `blockRevision` reload.
+    func didBlock() {
+        blockRevision += 1
+        Task { await refreshBadges() }
     }
 
     /// Call when a demo user taps something that needs a real account.
