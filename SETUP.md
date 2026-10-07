@@ -27,7 +27,7 @@ Migrations for schema `boulderme` are applied to the PulseDeals Supabase project
 4. On the Welcome screen tap **Explore the demo**; no accounts are needed.
 5. To run on your own iPhone, copy `ios/Config/Local.xcconfig.example` to `ios/Config/Local.xcconfig` and set `DEVELOPMENT_TEAM`.
 
-From the command line: `xcodebuild -project ios/BoulderMe.xcodeproj -scheme BoulderMe -destination 'platform=iOS Simulator,name=iPhone 16' test`.
+From the command line: `xcodebuild -project ios/BoulderMe.xcodeproj -scheme BoulderMe -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test`.
 
 ## 5. Cloudflare and Apple (later, T8)
 

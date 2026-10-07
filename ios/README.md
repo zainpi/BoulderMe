@@ -33,7 +33,7 @@ BoulderMeTests/          Wire-format and demo-backend tests (XCTest)
 
 ```
 xcodebuild -project ios/BoulderMe.xcodeproj -scheme BoulderMe \
-  -destination 'platform=iOS Simulator,name=iPhone 16' test
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
 ```
 
 The Design system page (Profile → Settings → Design system, non-production builds) shows every token and component; its previews cover dark mode and accessibility text sizes.

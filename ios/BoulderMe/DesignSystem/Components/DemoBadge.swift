@@ -4,6 +4,8 @@ import SwiftUI
 struct DemoBadge: View {
     var body: some View {
         Label("Demo", systemImage: "sparkles")
+            // Toolbars render labels icon-only by default; the word must show.
+            .labelStyle(.titleAndIcon)
             .font(Typography.caption.weight(.bold))
             .foregroundStyle(Palette.ink)
             .padding(.horizontal, Spacing.s)

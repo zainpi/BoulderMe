@@ -25,6 +25,10 @@ enum Palette {
     static let sunny = dynamic(light: 0xF5B700, dark: 0xFFCB3D, lightHC: 0xB88900, darkHC: 0xFFDA75)
     static let moss = dynamic(light: 0x55703A, dark: 0xA3C27A, lightHC: 0x3B5226, darkHC: 0xC4DDA2)
     static let denim = dynamic(light: 0x2F5F8A, dark: 0x8DB7DE, lightHC: 0x1E4466, darkHC: 0xB8D4EE)
+    /// Text on moss, denim and wall fills (white in light mode, dark ink in dark mode).
+    static let onBrand = onAccent
+    /// Text on sunny fills, which stay light in both modes.
+    static let onSunny = dynamic(light: 0x2B211C, dark: 0x1C1613, lightHC: 0x000000, darkHC: 0x000000)
     static let wall = dynamic(light: 0x3A2F2C, dark: 0x5A4A44, lightHC: 0x231C1A, darkHC: 0x7A6860)
 
     // Feedback

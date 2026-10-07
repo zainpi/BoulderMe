@@ -40,6 +40,7 @@ struct Chip: View {
             .padding(.vertical, Spacing.xs - 2)
             .frame(minHeight: action == nil ? 0 : 36)
             .background(isSelected ? Palette.accent : Palette.surfaceSunken, in: Capsule())
+            .overlay(Capsule().stroke(isSelected ? Color.clear : Palette.outline, lineWidth: 1))
     }
 }
 

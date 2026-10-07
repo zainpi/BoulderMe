@@ -48,17 +48,21 @@ struct Avatar: View {
     let seed: EntityID
     var size: CGFloat = 48
 
-    private static let fills: [Color] = [Palette.accent, Palette.moss, Palette.denim, Palette.sunny, Palette.wall]
+    /// Fill and a readable initial color for it, in light and dark mode.
+    private static let fills: [(fill: Color, text: Color)] = [
+        (Palette.accent, Palette.onAccent), (Palette.moss, Palette.onBrand), (Palette.denim, Palette.onBrand),
+        (Palette.sunny, Palette.onSunny), (Palette.wall, .white),
+    ]
 
     var body: some View {
-        let index = abs(seed.description.hashValueStable) % Self.fills.count
+        let style = Self.fills[abs(seed.description.hashValueStable) % Self.fills.count]
         Circle()
-            .fill(Self.fills[index].gradient)
+            .fill(style.fill.gradient)
             .frame(width: size, height: size)
             .overlay(
                 Text(String(name.prefix(1)).uppercased())
                     .font(.system(size: size * 0.42, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(style.text)
             )
             .accessibilityHidden(true)
     }
