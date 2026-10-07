@@ -1,0 +1,67 @@
+name: appstore-screenshots
+
+# Captures raw App Store screenshots from the simulator in demo mode and commits
+# them to this branch under appstore/screenshots/raw/. Composition happens elsewhere.
+on:
+  workflow_dispatch:
+    inputs:
+      app_ref:
+        description: Branch or commit of the app to photograph
+        default: claude/t6-ios-onboarding-uf57uu
+  push:
+    branches: [claude/project-thread-o0zj3r]
+    paths: [".github/workflows/appstore-screenshots.yml", "tools/appstore/**"]
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.app_ref || 'claude/t6-ios-onboarding-uf57uu' }}
+          path: app
+      - name: Patch app for screenshots
+        run: python3 tools/appstore/patch_app.py app/ios/BoulderMe
+      - name: Boot a 6.9-inch iPhone
+        run: |
+          xcodebuild -version
+          NAME=$(xcrun simctl list devices available | grep -m1 -oE 'iPhone 1[0-9] Pro Max')
+          UDID=$(xcrun simctl list devices available | grep -m1 "$NAME (" | grep -oE '[0-9A-F-]{36}')
+          echo "Using $NAME $UDID"
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          echo "DEVICE_NAME=$NAME" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl ui "$UDID" appearance light
+          xcrun simctl status_bar "$UDID" override --time 9:41 --dataNetwork wifi --wifiMode active \
+            --wifiBars 3 --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100
+      - name: Build
+        run: |
+          xcodebuild -project app/ios/BoulderMe.xcodeproj -scheme BoulderMe -configuration Debug \
+            -destination "id=$UDID" -derivedDataPath dd CODE_SIGNING_ALLOWED=NO build | tail -20
+      - name: Capture
+        run: |
+          xcrun simctl install "$UDID" dd/Build/Products/Debug-iphonesimulator/BoulderMe.app
+          BID=com.zainpi.boulderme.debug
+          OUT=appstore/screenshots/raw
+          rm -rf "$OUT" && mkdir -p "$OUT"
+          for scene in welcome discover profile invites invitation chat me; do
+            xcrun simctl terminate "$UDID" "$BID" 2>/dev/null || true
+            xcrun simctl launch "$UDID" "$BID" -BMScreenshot "$scene"
+            sleep 6
+            xcrun simctl io "$UDID" screenshot --type=png "$OUT/$scene.png"
+          done
+          sips -g pixelWidth -g pixelHeight "$OUT"/*.png
+          echo "$DEVICE_NAME, app ref ${{ inputs.app_ref || 'claude/t6-ios-onboarding-uf57uu' }} @ $(git -C app rev-parse --short HEAD)" > "$OUT/SOURCE.txt"
+      - name: Commit screenshots
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add appstore/screenshots/raw
+          git commit -m "Capture raw App Store screenshots" || exit 0
+          git push origin HEAD:${{ github.ref_name }}
