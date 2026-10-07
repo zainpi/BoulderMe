@@ -12,16 +12,21 @@ BoulderMe/
   Navigation/            AppTab, typed Route enums per tab, Router, RootView + MainTabView
   DesignSystem/          Palette, Tokens (spacing, radius, type, motion), Components/, DesignSystemGallery
   Models/                DTOs mirroring docs/api/openapi.yaml, APICoding (snake_case, RFC 3339), AppError
-  Services/              One protocol per API area, ServiceContainer, PendingLiveServices placeholder
+  Services/              One protocol per API area, ServiceContainer, PendingLiveServices (T7 areas)
+    Live/                APIClient (single-flight refresh), LiveServices, KeychainSessionStore,
+                         AccountCache (per-account, wiped on sign-out), Sign in with Apple
   Demo/                  DemoFixtures + DemoBackend (in-memory, applies the Worker's core rules)
-  Features/              Welcome, Discover, Invites, Chats, Profile
+  Features/              Welcome, Onboarding, Discover, Invites, Chats, Profile, Gyms, Availability, Settings
   Resources/             Assets.xcassets (AppIcon from the original brief, AccentColor)
 BoulderMeTests/          Wire-format and demo-backend tests (XCTest)
 ```
 
 ## Conventions
 
-- **Screens depend on protocols only.** `AppModel.services` is a `ServiceContainer`; demo mode swaps in a fresh `DemoBackend` each time, so demo data never mixes with an account's cache. `PendingLiveServices` throws `AppError.notImplemented` until T6/T7 add the URLSession client.
+- **Screens depend on protocols only.** `AppModel.services` is a `ServiceContainer`; demo mode swaps in a fresh `DemoBackend` each time, so demo data never mixes with an account's cache. Signed in, `LiveServices` covers account, profile, gyms and availability; `PendingLiveServices` throws `AppError.notImplemented` for the T7 areas.
+- **Sessions.** `APIClient` (an actor) adds the bearer token and refreshes it single-flight: concurrent requests with a stale token share one `POST /v1/auth/refresh`. A rejected refresh or `account_deleted` clears the Keychain and `AppModel` returns to Welcome with a note. Offline never signs anyone out.
+- **App modes.** `launching → welcome | onboarding | account`, plus `demo`. Onboarding resumes from `GET /v1/me`'s `onboarding` checklist (`OnboardingPlan`), plus two device-only choices (skipped availability, "Not now" on discovery).
+- **Sign in with Apple** is entitled in Staging and Release (`Config/BoulderMe.entitlements`). Debug leaves it off so free teams can build; add `CODE_SIGN_ENTITLEMENTS = Config/BoulderMe.entitlements` to `Local.xcconfig` to try it.
 - **Wire format.** DTO property names are the camelCase of the wire names with `Id` (not `ID`) so `.convertFromSnakeCase` round-trips. Ids use `EntityID`, which always encodes lowercase. Required-but-nullable input fields encode `null` explicitly (see `ProfileInput`).
 - **Design system.** Use `Palette`, `Spacing`, `Radius` and `Typography`; no literal colors or sizes in screens. Every color has light, dark and Increase Contrast values. Type is Dynamic Type in SF Rounded. Liquid Glass (`floatingGlass(in:)`) is for floating controls only, uses `glassEffect` on iOS 26 and a material before that, and a solid surface with Reduce Transparency.
 - **States.** Data screens use `LoadState` + `LoadStateView` for loading (skeletons), empty, error (from `AppError`), offline and loaded.

@@ -6,21 +6,21 @@ Update the Status column in the PR that changes it. "Implemented" means server r
 
 | Feature | Scope | Status | Server | iOS | Owner thread | External setup |
 |---|---|---|---|---|---|---|
-| Sign in with Apple | Core | Server done (T3, tested with signed test tokens); iOS not started | T3 | T6 | T3, T6 | Apple Developer Program, Services ID/key |
-| Profile & climbing fit (grades, styles, intro) | Core | Server done (T3); iOS not started | T3 | T6 | T3, T6 | none |
-| Gym list (Ontario seed) + suggest a gym | Core | Seeded in DB; server done (T3); iOS not started | T2, T3 | T6 | T2, T3, T6 | none |
-| Gym access (membership / guest pass, self-reported) | Core | Server done (T3); iOS not started | T3 | T6 | T3, T6 | none |
-| Weekly availability | Core | Server done (T3); iOS not started | T3 | T6 | T3, T6 | none |
-| Gym discovery with filters | Core | Server done (T3); iOS not started | T3 | T7 | T3, T7 | none |
+| Sign in with Apple | Core | Server (T3) and iOS (T6) built; not yet run end to end | T3 | T6 | T3, T6 | Apple Developer Program, Services ID/key |
+| Profile & climbing fit (grades, styles, intro) | Core | Server (T3) and iOS (T6) built; not yet run end to end | T3 | T6 | T3, T6 | none |
+| Gym list (Ontario seed) + suggest a gym | Core | Seeded in DB; server (T3) and iOS (T6) built; not yet run end to end | T2, T3 | T6 | T2, T3, T6 | none |
+| Gym access (membership / guest pass, self-reported) | Core | Server (T3) and iOS (T6) built; not yet run end to end | T3 | T6 | T3, T6 | none |
+| Weekly availability | Core | Server (T3) and iOS (T6) built; not yet run end to end | T3 | T6 | T3, T6 | none |
+| Gym discovery with filters | Core | Server done (T3); iOS not started (T7) | T3 | T7 | T3, T7 | none |
 | Session invitations | Core | Not started | T4 | T7 | T4, T7 | none |
 | Post-acceptance chat (polling) | Core | Not started | T4 | T7 | T4, T7 | none |
 | Block | Core | Not started | T4 | T7 | T4, T7 | none |
 | Report + moderation runbook | Core | Not started | T4 | T7 | T4, T7 | none |
-| Pause discovery | Core | Server done (T3); iOS not started | T3 | T6 | T3, T6 | none |
-| Edit / remove profile, gyms, availability | Core | Server done (T3); iOS not started | T3 | T6 | T3, T6 | none |
-| Data export | Core | Not started | T4 | T6 | T4, T6 | none |
-| Account deletion (incl. Apple revocation) | Core | Not started | T4 | T6 | T4, T6 | Apple key for revocation |
-| Guided onboarding (state machine, 18+, visibility explainer) | Core | Not started | n/a | T6 | T6 | none |
+| Pause discovery | Core | Server (T3) and iOS (T6) built; not yet run end to end | T3 | T6 | T3, T6 | none |
+| Edit / remove profile, gyms, availability | Core | Server (T3) and iOS (T6) built; not yet run end to end | T3 | T6 | T3, T6 | none |
+| Data export | Core | iOS built (T6); API pending (T4) | T4 | T6 | T4, T6 | none |
+| Account deletion (incl. Apple revocation) | Core | iOS built (T6); API pending (T4) | T4 | T6 | T4, T6 | Apple key for revocation |
+| Guided onboarding (state machine, 18+, visibility explainer) | Core | iOS built (T6); server routes ready (T3); not yet run end to end | n/a | T6 | T6 | none |
 | Demo mode | Core | Implemented | n/a | T5 | T5 | none |
 | Design system (cozy, Dynamic Type, dark mode, Liquid Glass with fallback) | Core | Implemented | n/a | T5 | T5 | none |
 | Database schema in PulseDeals Supabase | Core | Implemented (live; `boulderme_api` can log in since 2026-10-07) | T2 | n/a | T2 | Supabase connector (connected) |

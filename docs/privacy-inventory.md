@@ -33,7 +33,10 @@ What BoulderMe stores, who can see it, why, and how long it is kept. This is the
 ## On-device
 
 - Session tokens in Keychain (`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`).
-- Cached profile, gyms, invitations and chats in an account-scoped cache, wiped on sign-out or account switch.
+- Cached profile, gyms, invitations and chats in an account-scoped cache, wiped on sign-out or account switch. Today (T6) this holds the last `GET /v1/me` response and the unfinished onboarding draft, in `UserDefaults` under `account.<id>.` keys.
+- A random installation id (`UserDefaults`), sent only with sign-in for rate limiting. It isn't tied to the account on the device and survives sign-out; deleting the app removes it.
+- Network requests use an ephemeral `URLSession`: no HTTP disk cache or cookies.
+- A data export is written to the app's temporary folder (complete file protection) only when the member asks for it, so they can share it.
 - Demo mode uses bundled fixtures only and never talks to the server.
 
 ## Account deletion

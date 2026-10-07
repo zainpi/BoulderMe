@@ -74,7 +74,7 @@ final class DemoBackendTests: XCTestCase {
 
     @MainActor
     func testEnteringDemoGivesFreshDataEachTime() async throws {
-        let app = AppModel(config: .preview)
+        let app = AppModel.preview()
         XCTAssertTrue(app.isDemo)
         _ = try await app.services.safety.block(accountId: theo)
         app.leaveDemo()
