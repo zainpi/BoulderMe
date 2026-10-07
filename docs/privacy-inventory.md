@@ -28,7 +28,7 @@ What BoulderMe stores, who can see it, why, and how long it is kept. This is the
 | Reports, including a snapshot of a reported message | Member | Operator only; the reported member never learns who reported | Moderation | 1 year after resolution, then deleted; kept through account deletion so abuse can still be reviewed |
 | Gym suggestions | Member | Operator only | Grow the gym list | 1 year |
 | Refresh session records, installation id (hashed for rate limits) | App | Nobody | Security, rate limiting | Expired sessions purged after 30 days |
-| Request logs (request id, route, status, latency) | Worker | Operator | Debugging | Cloudflare default retention; no bodies, tokens or names logged |
+| Request logs (request id, route template, status, latency) | Worker | Operator | Debugging | Cloudflare default retention; no bodies, tokens, query values or names logged. Error messages are logged only outside production |
 
 ## On-device
 

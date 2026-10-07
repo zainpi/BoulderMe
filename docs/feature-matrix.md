@@ -6,18 +6,18 @@ Update the Status column in the PR that changes it. "Implemented" means server r
 
 | Feature | Scope | Status | Server | iOS | Owner thread | External setup |
 |---|---|---|---|---|---|---|
-| Sign in with Apple | Core | Not started | T3 | T6 | T3, T6 | Apple Developer Program, Services ID/key |
-| Profile & climbing fit (grades, styles, intro) | Core | Not started | T3 | T6 | T3, T6 | none |
-| Gym list (Ontario seed) + suggest a gym | Core | Seeded in DB; API not started | T2, T3 | T6 | T2, T3, T6 | none |
-| Gym access (membership / guest pass, self-reported) | Core | Not started | T3 | T6 | T3, T6 | none |
-| Weekly availability | Core | Not started | T3 | T6 | T3, T6 | none |
-| Gym discovery with filters | Core | Not started | T3 | T7 | T3, T7 | none |
+| Sign in with Apple | Core | Server done (T3, tested with signed test tokens); iOS not started | T3 | T6 | T3, T6 | Apple Developer Program, Services ID/key |
+| Profile & climbing fit (grades, styles, intro) | Core | Server done (T3); iOS not started | T3 | T6 | T3, T6 | none |
+| Gym list (Ontario seed) + suggest a gym | Core | Seeded in DB; server done (T3); iOS not started | T2, T3 | T6 | T2, T3, T6 | none |
+| Gym access (membership / guest pass, self-reported) | Core | Server done (T3); iOS not started | T3 | T6 | T3, T6 | none |
+| Weekly availability | Core | Server done (T3); iOS not started | T3 | T6 | T3, T6 | none |
+| Gym discovery with filters | Core | Server done (T3); iOS not started | T3 | T7 | T3, T7 | none |
 | Session invitations | Core | Not started | T4 | T7 | T4, T7 | none |
 | Post-acceptance chat (polling) | Core | Not started | T4 | T7 | T4, T7 | none |
 | Block | Core | Not started | T4 | T7 | T4, T7 | none |
 | Report + moderation runbook | Core | Not started | T4 | T7 | T4, T7 | none |
-| Pause discovery | Core | Not started | T3 | T6 | T3, T6 | none |
-| Edit / remove profile, gyms, availability | Core | Not started | T3 | T6 | T3, T6 | none |
+| Pause discovery | Core | Server done (T3); iOS not started | T3 | T6 | T3, T6 | none |
+| Edit / remove profile, gyms, availability | Core | Server done (T3); iOS not started | T3 | T6 | T3, T6 | none |
 | Data export | Core | Not started | T4 | T6 | T4, T6 | none |
 | Account deletion (incl. Apple revocation) | Core | Not started | T4 | T6 | T4, T6 | Apple key for revocation |
 | Guided onboarding (state machine, 18+, visibility explainer) | Core | Not started | n/a | T6 | T6 | none |
@@ -25,7 +25,7 @@ Update the Status column in the PR that changes it. "Implemented" means server r
 | Design system (cozy, Dynamic Type, dark mode, Liquid Glass with fallback) | Core | Not started | n/a | T5 | T5 | none |
 | Database schema in PulseDeals Supabase | Core | Implemented (live; `boulderme_api` password still to set) | T2 | n/a | T2 | Supabase connector (connected) |
 | Worker deploy (staging, production) | Core | Not started | T8 | n/a | T8 | Cloudflare account + API token |
-| CI (Worker tests, `xcodebuild` on macOS) | Core | Not started | T8 | T8 | T8 | GitHub Actions |
+| CI (Worker tests, `xcodebuild` on macOS) | Core | Worker job `api` added in T3; rest in T8 | T8 | T8 | T8 | GitHub Actions |
 | TestFlight build | Core | Not started | n/a | T8 | T8 | Apple Developer Program |
 | Push notifications | Optional | Off | | | | APNs key |
 | Subscriptions / paywall | Optional | Off | | | | App Store Connect agreements |

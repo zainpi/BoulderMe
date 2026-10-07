@@ -22,6 +22,14 @@ info:
       an `Idempotency-Key` header (UUID); replays within 24 hours return the
       original response.
     - Authenticated routes need `Authorization: Bearer <access_token>`.
+    - The app sends `X-Client-Installation-Id` (its random per-install UUID) on every
+      request. Unauthenticated routes are rate limited per installation (a salted hash,
+      never an IP); requests without the header all share one anonymous bucket.
+      Authenticated routes are rate limited per account.
+    - Any route may also answer `429 rate_limited` (honor `Retry-After`), `503
+      unavailable` (a dependency is down; retry with backoff) or `500 internal_error`,
+      all in the `Error` envelope. Unknown routes, and path ids that are not UUIDs,
+      return `404 not_found`.
     - Grades use the V-scale as integers: `0` = V0 ... `17` = V17.
     - Blocking is symmetric and silent: a blocked pair never sees each other in
       discovery, profiles, invitations or chats, and gets `not_found` rather than
@@ -86,6 +94,8 @@ paths:
         The client passes `SHA256(nonce)` (hex) as the Apple request nonce, then sends the
         raw `nonce` back to `/v1/auth/apple`. Nonces expire after 10 minutes and can be
         used once.
+      parameters:
+        - $ref: "#/components/parameters/ClientInstallationId"
       security: []
       responses:
         "201":
@@ -94,6 +104,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthNonce"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
         "429":
           $ref: "#/components/responses/RateLimited"
   /v1/auth/apple:
@@ -107,6 +119,8 @@ paths:
         `SHA256(nonce)`. It exchanges `authorization_code` with Apple and stores the
         Apple refresh token encrypted, for revocation on account deletion. The stable
         Apple `sub` is the identity. Creates the account on first sign-in.
+      parameters:
+        - $ref: "#/components/parameters/ClientInstallationId"
       security: []
       requestBody:
         required: true
@@ -127,6 +141,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "429":
           $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/Unavailable"
   /v1/auth/refresh:
     post:
       tags: [auth]
@@ -136,6 +152,8 @@ paths:
         Rotation is atomic: the presented refresh token is consumed and a new one issued.
         Presenting an already-used refresh token revokes the whole session family
         (`refresh_token_reused`) and the client must sign in again.
+      parameters:
+        - $ref: "#/components/parameters/ClientInstallationId"
       security: []
       requestBody:
         required: true
@@ -150,6 +168,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "429":
@@ -168,6 +188,8 @@ paths:
       responses:
         "204":
           description: Signed out. Also returned when the session was already revoked.
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -292,6 +314,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DiscoverySetting"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "422":
@@ -373,6 +397,8 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
         "429":
           $ref: "#/components/responses/RateLimited"
   /v1/me/gyms:
@@ -483,6 +509,8 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
         "422":
           $ref: "#/components/responses/RuleViolation"
   /v1/me/availability/{slot_id}:
@@ -531,9 +559,11 @@ paths:
       summary: Find discoverable members at a gym.
       description: |
         Returns members who have discovery on, list `gym_id`, and overlap the requested
-        grade range. Excludes the caller, paused, deleted and blocked (either direction)
-        members. No location is used. Ordered by grade-range overlap, then most
-        recently active (day precision only).
+        grade range (all grades when none is given). Excludes the caller, paused, deleted
+        and blocked (either direction) members. No location is used. Ordered by overlap
+        with the requested grade range (or, when no grade filter is sent, with the
+        caller's own range), then most recently active (day precision only). The caller
+        needs a profile first (`profile_incomplete`).
       parameters:
         - name: gym_id
           in: query
@@ -767,6 +797,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatPage"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
         "401":
           $ref: "#/components/responses/Unauthorized"
   /v1/chats/{chat_id}:
@@ -867,6 +899,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BlockPage"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
         "401":
           $ref: "#/components/responses/Unauthorized"
   /v1/blocks/{account_id}:
@@ -958,6 +992,12 @@ components:
         minimum: 1
         maximum: 50
         default: 20
+    ClientInstallationId:
+      name: X-Client-Installation-Id
+      in: header
+      description: Random per-install UUID, used only (as a salted hash) for rate limiting.
+      schema:
+        $ref: "#/components/schemas/Uuid"
     IdempotencyKey:
       name: Idempotency-Key
       in: header

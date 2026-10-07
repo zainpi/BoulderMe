@@ -31,6 +31,10 @@ Restore only BoulderMe: `pg_restore --dbname="$DATABASE_ADMIN_URL" --schema=boul
 - **Weekly:** Cloudflare dashboard → Workers → `boulderme-api` → errors and request count (stay under 100k/day). Supabase dashboard → Database size (shared 500 MB with PulseDeals).
 - **Monthly:** Update dependencies (`npm outdated` in `api/`), rebuild the app with the current Xcode, test restoring the latest backup into a scratch database.
 
+## Housekeeping (automatic)
+
+The Worker's daily cron (04:17 UTC, `wrangler.toml`) deletes expired sign-in nonces, rate-limit windows older than two days, idempotency keys older than 24 hours, and refresh sessions that expired or were revoked more than 30 days ago. Its log line is `"event":"housekeeping"` with a count per table. Nothing to do unless it stops appearing.
+
 ## Moderation (reports)
 
 Review open reports at least every two days. Exact SQL lands with T4; the shape is:
