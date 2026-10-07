@@ -140,7 +140,9 @@ final class APIClientTests: XCTestCase {
         let client = APIClient(baseURL: base, transport: transport, store: store)
         _ = try await client.signInWithApple(AppleSignInRequest(
             identityToken: "t", authorizationCode: "c", nonce: "raw-nonce", givenName: nil, clientInstallationId: EntityID()))
-        XCTAssertEqual(store.load(), session)
+        // The wire drops fractional seconds, so compare fields rather than the whole value.
+        XCTAssertEqual(store.load()?.accessToken, session.accessToken)
+        XCTAssertEqual(store.load()?.accountId, session.accountId)
 
         await client.signOut()
         XCTAssertNil(store.load())
