@@ -3,7 +3,9 @@ import Foundation
 /// In-memory backend for demo mode. Implements every service protocol against
 /// `DemoFixtures`, applying the same core rules as the Worker (blocks hide both
 /// ways, one pending invite per pair, chat only after acceptance) so the UI can
-/// be exercised end to end without an account. State resets on every launch.
+/// be exercised end to end without an account. The other climbers play their
+/// side: they accept invites you send and answer your messages. State resets on
+/// every launch.
 actor DemoBackend: AccountService, ProfileService, GymService, AvailabilityService,
     DiscoveryService, InvitationService, ChatService, SafetyService {
     private let now: @Sendable () -> Date
@@ -15,6 +17,11 @@ actor DemoBackend: AccountService, ProfileService, GymService, AvailabilityServi
     private var chatStore: [Chat] = []
     private var messageStore: [EntityID: [Message]] = [:]
     private var blockStore: [Block] = []
+    private var reportStore: [Report] = []
+    /// Invites sent in this demo session that the recipient will accept (see `advance()`).
+    private var partnerWillAccept: Set<EntityID> = []
+    private var idempotentInvites: [UUID: EntityID] = [:]
+    private var idempotentMessages: [UUID: EntityID] = [:]
     private var nextNumber = 5000
 
     init(now: @escaping @Sendable () -> Date = { Date() }) {
@@ -127,7 +134,8 @@ actor DemoBackend: AccountService, ProfileService, GymService, AvailabilityServi
 
     private func invitationIndex(_ id: EntityID) throws -> Int {
         expireStale()
-        guard let index = invitationStore.firstIndex(where: { $0.invitationId == id }) else {
+        guard let index = invitationStore.firstIndex(where: { $0.invitationId == id }),
+              !isBlocked(invitationStore[index].other(than: ownProfile.accountId).accountId) else {
             throw AppError.api(.notFound, requestId: nil)
         }
         return index
@@ -136,13 +144,16 @@ actor DemoBackend: AccountService, ProfileService, GymService, AvailabilityServi
     // MARK: AccountService
 
     func me() async throws -> Me {
-        expireStale()
-        let pendingIncoming = invitationStore.filter { $0.status == .pending && $0.recipient.accountId == ownProfile.accountId }.count
+        advance()
+        let pendingIncoming = invitationStore.filter {
+            $0.status == .pending && $0.recipient.accountId == ownProfile.accountId && !isBlocked($0.sender.accountId)
+        }.count
+        let unread = chatStore.filter { !isBlocked($0.otherMember.accountId) }.reduce(0) { $0 + $1.unreadCount }
         return Me(
             accountId: ownProfile.accountId, createdAt: ownProfile.updatedAt, profile: ownProfile, gyms: ownGyms,
             onboarding: OnboardingState(hasProfile: true, hasGym: !ownGyms.isEmpty, hasAvailability: !ownSlots.isEmpty,
                                         adultConfirmed: true, discoveryExplained: true),
-            unreadChatCount: chatStore.reduce(0) { $0 + $1.unreadCount },
+            unreadChatCount: unread,
             pendingIncomingInvitationCount: pendingIncoming)
     }
 
@@ -269,20 +280,28 @@ actor DemoBackend: AccountService, ProfileService, GymService, AvailabilityServi
     // MARK: InvitationService
 
     func invitations(box: InvitationBox, cursor: String?) async throws -> Page<Invitation> {
-        expireStale()
+        advance()
+        let me = ownProfile.accountId
         let items = invitationStore
-            .filter { box == .incoming ? $0.recipient.accountId == ownProfile.accountId : $0.sender.accountId == ownProfile.accountId }
-            .sorted { $0.proposedStartAt < $1.proposedStartAt }
+            .filter { box == .incoming ? $0.recipient.accountId == me : $0.sender.accountId == me }
+            .filter { !isBlocked($0.other(than: me).accountId) }
+            .sorted { $0.createdAt > $1.createdAt }
         return Page(items: items)
     }
 
     func invitation(id: EntityID) async throws -> Invitation {
-        invitationStore[try invitationIndex(id)]
+        advance()
+        return invitationStore[try invitationIndex(id)]
     }
 
     func create(_ input: InvitationInput, idempotencyKey: UUID) async throws -> Invitation {
+        advance()
+        if let replay = idempotentInvites[idempotencyKey],
+           let existing = invitationStore.first(where: { $0.invitationId == replay }) {
+            return existing
+        }
         let recipientId = input.recipientAccountId
-        guard let climber = climbers[recipientId], !isBlocked(recipientId) else {
+        guard let climber = climbers[recipientId], climber.discoverable, !isBlocked(recipientId) else {
             throw AppError.api(.notFound, requestId: nil)
         }
         guard ownGyms.contains(where: { $0.gym.gymId == input.gymId }),
@@ -294,7 +313,6 @@ actor DemoBackend: AccountService, ProfileService, GymService, AvailabilityServi
               input.proposedStartAt <= start.addingTimeInterval(60 * 86_400) else {
             throw AppError.api(.invalidTime, requestId: nil)
         }
-        expireStale()
         let open = invitationStore.contains {
             $0.status == .pending && Set([$0.sender.accountId, $0.recipient.accountId]) == Set([ownProfile.accountId, recipientId])
         }
@@ -304,123 +322,226 @@ actor DemoBackend: AccountService, ProfileService, GymService, AvailabilityServi
             proposedStartAt: input.proposedStartAt, durationMinutes: input.durationMinutes, note: input.note,
             chatId: nil, createdAt: start, respondedAt: nil, expiresAt: input.proposedStartAt)
         invitationStore.append(invitation)
+        idempotentInvites[idempotencyKey] = invitation.invitationId
+        partnerWillAccept.insert(invitation.invitationId)
         return invitation
     }
 
     func accept(id: EntityID) async throws -> Invitation {
+        advance()
         let index = try invitationIndex(id)
-        var invitation = invitationStore[index]
-        guard invitation.recipient.accountId == ownProfile.accountId else { throw AppError.api(.forbidden, requestId: nil) }
-        guard invitation.status == .pending else { throw AppError.api(.invalidState, requestId: nil) }
-        let other = invitation.sender
-        let start = now()
-        let chatId: EntityID
-        if let chatIndex = chatStore.firstIndex(where: { $0.otherMember.accountId == other.accountId }) {
-            chatId = chatStore[chatIndex].chatId
-            chatStore[chatIndex].status = .open
-            chatStore[chatIndex].upcomingSession = invitation
-        } else {
-            chatId = newId()
-            chatStore.append(Chat(chatId: chatId, otherMember: other, status: .open, lastMessage: nil, unreadCount: 0,
-                              upcomingSession: nil, createdAt: start, updatedAt: start))
+        // The sender gets `invalid_state` too, never a hint about the recipient.
+        guard invitationStore[index].recipient.accountId == ownProfile.accountId,
+              invitationStore[index].status == .pending else {
+            throw AppError.api(.invalidState, requestId: nil)
         }
-        invitation.status = .accepted
-        invitation.respondedAt = start
-        invitation.chatId = chatId
-        invitationStore[index] = invitation
-        if let chatIndex = chatStore.firstIndex(where: { $0.chatId == chatId }) {
-            chatStore[chatIndex].upcomingSession = invitation
-        }
-        return invitation
+        markAccepted(index)
+        return invitationStore[index]
     }
 
     func decline(id: EntityID) async throws -> Invitation {
+        advance()
         let index = try invitationIndex(id)
-        guard invitationStore[index].recipient.accountId == ownProfile.accountId else { throw AppError.api(.forbidden, requestId: nil) }
-        guard invitationStore[index].status == .pending else { throw AppError.api(.invalidState, requestId: nil) }
+        guard invitationStore[index].recipient.accountId == ownProfile.accountId,
+              invitationStore[index].status == .pending else {
+            throw AppError.api(.invalidState, requestId: nil)
+        }
         invitationStore[index].status = .declined
         invitationStore[index].respondedAt = now()
         return invitationStore[index]
     }
 
     func cancel(id: EntityID) async throws -> Invitation {
+        advance()
         let index = try invitationIndex(id)
         let invitation = invitationStore[index]
-        let canCancel = invitation.status == .accepted
+        let canCancel = (invitation.status == .accepted && invitation.endsAt > now())
             || (invitation.status == .pending && invitation.sender.accountId == ownProfile.accountId)
         guard canCancel else { throw AppError.api(.invalidState, requestId: nil) }
         invitationStore[index].status = .cancelled
         invitationStore[index].respondedAt = now()
+        partnerWillAccept.remove(id)
         return invitationStore[index]
+    }
+
+    /// Accepts the invitation at `index` and opens (or reopens) the pair's chat.
+    private func markAccepted(_ index: Int) {
+        let start = now()
+        let other = invitationStore[index].other(than: ownProfile.accountId)
+        let chatId: EntityID
+        if let chatIndex = chatStore.firstIndex(where: { $0.otherMember.accountId == other.accountId }) {
+            chatId = chatStore[chatIndex].chatId
+            chatStore[chatIndex].status = .open
+        } else {
+            chatId = newId()
+            chatStore.append(Chat(chatId: chatId, otherMember: other, status: .open, lastMessage: nil, unreadCount: 0,
+                                  upcomingSession: nil, createdAt: start, updatedAt: start))
+        }
+        invitationStore[index].status = .accepted
+        invitationStore[index].respondedAt = start
+        invitationStore[index].chatId = chatId
     }
 
     // MARK: ChatService
 
     func chats(cursor: String?) async throws -> Page<Chat> {
-        Page(items: chatStore.sorted { $0.updatedAt > $1.updatedAt })
+        advance()
+        let visible = chatStore.filter { !isBlocked($0.otherMember.accountId) }
+        return Page(items: visible.map(decorated).sorted { $0.updatedAt > $1.updatedAt })
     }
 
     func chat(id: EntityID) async throws -> Chat {
-        guard let chat = chatStore.first(where: { $0.chatId == id }) else { throw AppError.api(.notFound, requestId: nil) }
-        return chat
+        advance()
+        return decorated(chatStore[try chatIndex(id)])
     }
 
     func messages(chatId: EntityID, after: EntityID?, cursor: String?) async throws -> Page<Message> {
-        guard let index = chatStore.firstIndex(where: { $0.chatId == chatId }) else {
-            throw AppError.api(.notFound, requestId: nil)
-        }
+        advance()
+        let index = try chatIndex(chatId)
         chatStore[index].unreadCount = 0
         let all = messageStore[chatId] ?? []
         if let after {
-            guard let position = all.firstIndex(where: { $0.messageId == after }) else { return Page(items: []) }
+            guard let position = all.firstIndex(where: { $0.messageId == after }) else {
+                throw AppError.api(.validationFailed, requestId: nil)
+            }
             return Page(items: Array(all[(position + 1)...]))
         }
         return Page(items: all.reversed())
     }
 
     func send(chatId: EntityID, body: String, idempotencyKey: UUID) async throws -> Message {
-        guard let index = chatStore.firstIndex(where: { $0.chatId == chatId }) else {
-            throw AppError.api(.notFound, requestId: nil)
+        advance()
+        let index = try chatIndex(chatId)
+        if let replay = idempotentMessages[idempotencyKey],
+           let existing = messageStore[chatId]?.first(where: { $0.messageId == replay }) {
+            return existing
         }
         guard chatStore[index].status == .open else { throw AppError.api(.chatClosed, requestId: nil) }
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed.count <= 1000 else { throw AppError.api(.validationFailed, requestId: nil) }
         let message = Message(messageId: newId(), chatId: chatId, senderAccountId: ownProfile.accountId, body: trimmed, createdAt: now())
-        messageStore[chatId, default: []].append(message)
-        chatStore[index].lastMessage = message
-        chatStore[index].updatedAt = message.createdAt
+        append(message, to: index)
+        idempotentMessages[idempotencyKey] = message.messageId
         return message
+    }
+
+    private func chatIndex(_ id: EntityID) throws -> Int {
+        guard let index = chatStore.firstIndex(where: { $0.chatId == id }),
+              !isBlocked(chatStore[index].otherMember.accountId) else {
+            throw AppError.api(.notFound, requestId: nil)
+        }
+        return index
+    }
+
+    private func append(_ message: Message, to chatIndex: Int) {
+        messageStore[message.chatId, default: []].append(message)
+        chatStore[chatIndex].lastMessage = message
+        chatStore[chatIndex].updatedAt = message.createdAt
+    }
+
+    /// The pair's next accepted session that hasn't ended, like the Worker.
+    private func decorated(_ chat: Chat) -> Chat {
+        var chat = chat
+        let current = now()
+        chat.upcomingSession = invitationStore
+            .filter { $0.status == .accepted && $0.other(than: ownProfile.accountId).accountId == chat.otherMember.accountId && $0.endsAt > current }
+            .min { $0.proposedStartAt < $1.proposedStartAt }
+        return chat
     }
 
     // MARK: SafetyService
 
-    func blocks(cursor: String?) async throws -> Page<Block> { Page(items: blockStore) }
+    func blocks(cursor: String?) async throws -> Page<Block> {
+        Page(items: blockStore.sorted { $0.createdAt > $1.createdAt })
+    }
 
     func block(accountId: EntityID) async throws -> Block {
         guard let climber = climbers[accountId] else { throw AppError.api(.notFound, requestId: nil) }
         if let existing = blockStore.first(where: { $0.blockedAccountId == accountId }) { return existing }
         let block = Block(blockedAccountId: accountId, displayName: climber.profile.displayName, createdAt: now())
         blockStore.append(block)
-        // Same effects as the Worker: cancel open invites and close the chat.
-        for index in invitationStore.indices {
-            let pair = Set([invitationStore[index].sender.accountId, invitationStore[index].recipient.accountId])
-            if pair.contains(accountId), [.pending, .accepted].contains(invitationStore[index].status) {
+        // Same effects as the Worker: cancel open invites and unfinished sessions, close the chat.
+        let current = now()
+        for index in invitationStore.indices where invitationStore[index].other(than: ownProfile.accountId).accountId == accountId {
+            let invitation = invitationStore[index]
+            if invitation.status == .pending || (invitation.status == .accepted && invitation.endsAt > current) {
                 invitationStore[index].status = .cancelled
+                invitationStore[index].respondedAt = current
+                partnerWillAccept.remove(invitation.invitationId)
             }
         }
         for index in chatStore.indices where chatStore[index].otherMember.accountId == accountId {
             chatStore[index].status = .closed
-            chatStore[index].upcomingSession = nil
         }
         return block
     }
 
+    /// Unblocking leaves the old chat closed until a new invitation is accepted.
     func unblock(accountId: EntityID) async throws {
         blockStore.removeAll { $0.blockedAccountId == accountId }
     }
 
-    func report(_ input: ReportInput) async throws -> Report {
-        Report(reportId: newId(), reportedAccountId: input.reportedAccountId, context: input.context,
-               reason: input.reason.rawValue, status: .open, createdAt: now())
+    func report(_ input: ReportInput, idempotencyKey: UUID) async throws -> Report {
+        let reported = input.reportedAccountId
+        guard climbers[reported] != nil else { throw AppError.api(.notFound, requestId: nil) }
+        switch input.context {
+        case .profile:
+            break
+        case .invitation:
+            guard let id = input.invitationId,
+                  invitationStore.contains(where: { $0.invitationId == id && $0.other(than: ownProfile.accountId).accountId == reported }) else {
+                throw AppError.api(.notFound, requestId: nil)
+            }
+        case .message:
+            guard let id = input.messageId,
+                  messageStore.values.joined().contains(where: { $0.messageId == id && $0.senderAccountId == reported }) else {
+                throw AppError.api(.notFound, requestId: nil)
+            }
+        }
+        let report = Report(reportId: newId(), reportedAccountId: reported, context: input.context,
+                            reason: input.reason.rawValue, status: .open, createdAt: now())
+        reportStore.append(report)
+        return report
+    }
+
+    // MARK: The other climbers
+
+    /// How long a demo climber takes to accept your invite or answer your message.
+    static let partnerDelay: TimeInterval = 4
+
+    private static let partnerReplies = [
+        "Sounds great! See you at the wall 🧗",
+        "Yes! I'll bring chalk and snacks.",
+        "Perfect. Want to warm up on the slab first?",
+        "Ha, love it. Let's send something today.",
+    ]
+
+    /// Demo climbers answer on their own, so one person can see both sides:
+    /// invites you send are accepted after a few seconds, and your messages get a reply.
+    /// Runs before every read, against the injected clock.
+    private func advance() {
+        let current = now()
+        expireStale()
+        for id in partnerWillAccept {
+            guard let index = invitationStore.firstIndex(where: { $0.invitationId == id }) else { continue }
+            let invitation = invitationStore[index]
+            guard invitation.status == .pending else {
+                partnerWillAccept.remove(id)
+                continue
+            }
+            if current.timeIntervalSince(invitation.createdAt) >= Self.partnerDelay {
+                markAccepted(index)
+                partnerWillAccept.remove(id)
+            }
+        }
+        for index in chatStore.indices where chatStore[index].status == .open {
+            let chat = chatStore[index]
+            guard let last = messageStore[chat.chatId]?.last, last.senderAccountId == ownProfile.accountId,
+                  current.timeIntervalSince(last.createdAt) >= Self.partnerDelay else { continue }
+            let body = Self.partnerReplies[(messageStore[chat.chatId]?.count ?? 0) % Self.partnerReplies.count]
+            append(Message(messageId: newId(), chatId: chat.chatId, senderAccountId: chat.otherMember.accountId,
+                           body: body, createdAt: current), to: index)
+            chatStore[index].unreadCount += 1
+        }
     }
 }

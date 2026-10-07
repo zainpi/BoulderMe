@@ -104,6 +104,7 @@ struct MainTabView: View {
                         case .gyms: MyGymsView()
                         case .availability: MyAvailabilityView()
                         case .settings: SettingsView()
+                        case .blockedClimbers: BlockedClimbersView()
                         case .deleteAccount: DeleteAccountView()
                         case .designSystem: DesignSystemGallery()
                         }

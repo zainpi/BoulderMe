@@ -45,6 +45,7 @@ enum ProfileRoute: Hashable {
     case gyms
     case availability
     case settings
+    case blockedClimbers
     case deleteAccount
     case designSystem
 }
@@ -83,5 +84,11 @@ final class Router {
     func openChat(_ chatId: EntityID) {
         chats = [.chat(chatId)]
         selectedTab = .chats
+    }
+
+    /// Jump to an invitation from anywhere (e.g. "you already have an open invite").
+    func openInvitation(_ invitationId: EntityID) {
+        invites = [.invitation(invitationId)]
+        selectedTab = .invites
     }
 }

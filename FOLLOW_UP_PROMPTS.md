@@ -7,8 +7,8 @@
 - **Verified:** repo created, API contract (`docs/api/openapi.yaml`) lints clean, architecture, privacy, threat model, screen map and feature matrix written.
 - **Database (T2):** schema `boulderme` is live in PulseDeals with the Ontario gym list; isolation check passes. The `boulderme_api` password was set on 2026-10-07; it goes into the Worker secret `DATABASE_URL` at deploy time (T8). Migration `0002_account_deletion` (T4) is in the repo but not applied to PulseDeals yet; apply it before the Worker is deployed.
 - **API (T3, T4):** sign-in, sessions, profile, gyms, availability, pause, discovery, invitations, chat, blocks, reports, data export and account deletion are built and tested against a local Postgres (not deployed yet).
-- **iOS (T5, T6):** app shell, demo mode, Sign in with Apple, onboarding, profile, gyms, availability and settings are built and pass CI. They talk to the Worker routes in `docs/api/openapi.yaml`. Settings links to privacy, terms and support point at runsit.ca/boulderme/ (pages merged in zainpi/runIT#7).
-- **Not done yet:** iOS discovery/invites/chat (T7), staging deploy (T8). See `docs/feature-matrix.md`.
+- **iOS (T5, T6, T7):** app shell, demo mode, Sign in with Apple, onboarding, profile, gyms, availability, settings, discovery, invites, chat, blocking and reporting are built and pass CI. They talk to the Worker routes in `docs/api/openapi.yaml`. Settings links to privacy, terms and support point at runsit.ca/boulderme/ (pages merged in zainpi/runIT#7).
+- **Not done yet:** staging deploy and end-to-end checks (T8). See `docs/feature-matrix.md`.
 - **Next prompts:** 4 below to try sign-in locally, then "Apply the account-deletion migration" from Future ideas.
 
 ## 1. Build the database schema (done 2026-10-06)

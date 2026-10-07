@@ -11,11 +11,11 @@ Update the Status column in the PR that changes it. "Implemented" means server r
 | Gym list (Ontario seed) + suggest a gym | Core | Seeded in DB; server (T3) and iOS (T6) built; not yet run end to end | T2, T3 | T6 | T2, T3, T6 | none |
 | Gym access (membership / guest pass, self-reported) | Core | Server (T3) and iOS (T6) built; not yet run end to end | T3 | T6 | T3, T6 | none |
 | Weekly availability | Core | Server (T3) and iOS (T6) built; not yet run end to end | T3 | T6 | T3, T6 | none |
-| Gym discovery with filters | Core | Server done (T3); iOS not started (T7) | T3 | T7 | T3, T7 | none |
-| Session invitations | Core | Server done (T4); iOS not started (T7) | T4 | T7 | T4, T7 | none |
-| Post-acceptance chat (polling) | Core | Server done (T4); iOS not started (T7) | T4 | T7 | T4, T7 | none |
-| Block | Core | Server done (T4); iOS not started (T7) | T4 | T7 | T4, T7 | none |
-| Report + moderation runbook | Core | Server and SQL runbook done (T4); iOS not started (T7) | T4 | T7 | T4, T7 | none |
+| Gym discovery with filters | Core | Server (T3) and iOS (T7) built; not yet run end to end | T3 | T7 | T3, T7 | none |
+| Session invitations | Core | Server (T4) and iOS (T7) built; not yet run end to end | T4 | T7 | T4, T7 | none |
+| Post-acceptance chat (polling) | Core | Server (T4) and iOS (T7) built; not yet run end to end | T4 | T7 | T4, T7 | none |
+| Block | Core | Server (T4) and iOS (T7) built; not yet run end to end | T4 | T7 | T4, T7 | none |
+| Report + moderation runbook | Core | Server and SQL runbook (T4) and iOS (T7) built; not yet run end to end | T4 | T7 | T4, T7 | none |
 | Pause discovery | Core | Server (T3) and iOS (T6) built; not yet run end to end | T3 | T6 | T3, T6 | none |
 | Edit / remove profile, gyms, availability | Core | Server (T3) and iOS (T6) built; not yet run end to end | T3 | T6 | T3, T6 | none |
 | Data export | Core | Server (T4) and iOS (T6) built; not yet run end to end | T4 | T6 | T4, T6 | none |

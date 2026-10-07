@@ -85,6 +85,8 @@ enum AppError: Error, Equatable, Sendable {
             case .notFound: "They may have paused discovery or left BoulderMe."
             case .rateLimited: "That was a lot of taps. Try again in a minute."
             case .invitationAlreadyOpen: "You already have an open invite with this climber."
+            case .invalidState: "This invite changed in the meantime, so that didn't go through."
+            case .idempotencyMismatch: "That didn't go through. Please try again."
             case .chatClosed: "This chat is closed, so new messages can't be sent."
             case .gymNotShared: "Pick a gym you both climb at."
             case .gymLimitReached: "You can add up to 10 gyms."

@@ -50,6 +50,7 @@ protocol DiscoveryService: Sendable {
 }
 
 protocol InvitationService: Sendable {
+    /// Newest first, all statuses.
     func invitations(box: InvitationBox, cursor: String?) async throws -> Page<Invitation>
     func invitation(id: EntityID) async throws -> Invitation
     func create(_ input: InvitationInput, idempotencyKey: UUID) async throws -> Invitation
@@ -70,7 +71,7 @@ protocol SafetyService: Sendable {
     func blocks(cursor: String?) async throws -> Page<Block>
     func block(accountId: EntityID) async throws -> Block
     func unblock(accountId: EntityID) async throws
-    func report(_ input: ReportInput) async throws -> Report
+    func report(_ input: ReportInput, idempotencyKey: UUID) async throws -> Report
 }
 
 /// Everything a screen can depend on, built once by the composition root.
