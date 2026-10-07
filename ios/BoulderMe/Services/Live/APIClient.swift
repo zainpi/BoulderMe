@@ -61,7 +61,7 @@ enum SessionEndReason: Sendable, Equatable {
 /// `AppError`, and refreshes the access token at most once at a time: every
 /// request that finds the token stale joins the same in-flight refresh.
 actor APIClient {
-    let baseURL: URL
+    nonisolated let baseURL: URL
     private let transport: any HTTPTransport
     private let store: any SessionStore
     private let now: @Sendable () -> Date
