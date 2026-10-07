@@ -38,10 +38,10 @@ PHONE_W, PHONE_H = SCREEN_W + 2 * BEZEL, SCREEN_H + 2 * BEZEL
 # screenshots join up; holds and the route line cross the other seams.
 LAYOUT = [
     (0.56, 3, 700),
-    (0.80, -5, 780),
-    (0.30, 4, 700),
-    (0.80, -4, 780),
-    (0.30, 4, 700),
+    (0.74, -5, 780),
+    (0.38, 4, 700),
+    (0.74, -4, 780),
+    (0.38, 4, 700),
     (0.52, -2, 740),
 ]
 SEAM_HOLDS = [1, 3, 5]  # seams (after slide n) that get a big hold right on them
