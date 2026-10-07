@@ -5,6 +5,7 @@ import { handle, type Config, type Deps } from "./app";
 import { LiveAppleClient } from "./auth/apple";
 import { connect, PostgresRepository } from "./db/postgres";
 import { ApiError, errorResponse } from "./http";
+import { revokeAppleTokens } from "./revocation";
 
 export interface Env {
   ENVIRONMENT: string;
@@ -71,8 +72,16 @@ export default {
     if (!env.DATABASE_URL) return;
     const sql = connect(env.DATABASE_URL);
     try {
-      const purged = await new PostgresRepository(sql).purgeExpired(new Date());
-      log({ level: "info", event: "housekeeping", purged });
+      const repo = new PostgresRepository(sql);
+      const now = new Date();
+      const purged = await repo.purgeExpired(now);
+      const apple = new LiveAppleClient({
+        bundleId: env.APPLE_BUNDLE_ID ?? "", teamId: env.APPLE_TEAM_ID, keyId: env.APPLE_KEY_ID, privateKey: env.APPLE_PRIVATE_KEY,
+      });
+      const revocations = await revokeAppleTokens(
+        { repo, apple, encryptionKey: env.APPLE_TOKEN_ENCRYPTION_KEY ?? null, log }, now, { limit: 100 },
+      );
+      log({ level: "info", event: "housekeeping", purged, apple_revocations: revocations });
     } finally {
       ctx.waitUntil(sql.end({ timeout: 2 }));
     }

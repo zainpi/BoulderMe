@@ -35,10 +35,10 @@ info:
       discovery, profiles, invitations or chats, and gets `not_found` rather than
       a hint that a block exists.
 servers:
-  - url: https://api.boulderme.app
-    description: Production (placeholder hostname until a domain is chosen)
-  - url: https://boulderme-api-staging.workers.dev
-    description: Staging (placeholder; real workers.dev subdomain is set at deploy)
+  - url: https://boulderme-api.runsit.ca
+    description: Production (custom domain on runsit.ca, set up at deploy)
+  - url: https://boulderme-api-staging.runsit.ca
+    description: Staging (custom domain on runsit.ca, set up at deploy)
   - url: http://localhost:8787
     description: Local `wrangler dev`
 security:
@@ -213,12 +213,13 @@ paths:
       operationId: deleteAccount
       summary: Permanently delete the account.
       description: |
-        Immediately hides the profile, revokes every session, closes chats and cancels
-        open invitations, then removes profile, gym access, availability and
-        messages the account sent. A tombstone keeps the Apple subject hash so queued
-        work cannot resurrect the account. Apple token revocation is retried
-        durably. Reports filed about the account are kept for moderation (see
-        `docs/privacy-inventory.md`).
+        In one step: revokes every session, cancels open invitations, closes chats, and
+        removes the profile, gym access, availability, blocks the member made, gym
+        suggestions and messages the account sent. A tombstone keeps the Apple subject
+        hash so the account cannot be resurrected; signing in with the same Apple ID
+        answers `account_deleted` until Apple token revocation finishes (retried
+        durably), after which it starts a brand new account. Reports filed about the
+        account are kept for moderation (see `docs/privacy-inventory.md`).
       requestBody:
         required: true
         content:
@@ -237,6 +238,10 @@ paths:
       tags: [account]
       operationId: exportAccountData
       summary: Download everything stored about the signed-in account.
+      description: |
+        The profile, gyms, availability, every invitation and chat (with all its messages)
+        the member can see in the app, their blocks, the reports they filed and their gym
+        suggestions. Limited to 5 per hour.
       responses:
         "200":
           description: Account data export.
@@ -668,13 +673,13 @@ paths:
       operationId: createInvitation
       summary: Invite a member to climb at a gym at a proposed time.
       description: |
-        Rules enforced server-side (`rule_violation` codes in parentheses):
-        - recipient is discoverable, not the caller, not blocked either way (`not_found`);
-        - the caller has a complete profile (`profile_incomplete`);
+        Rules enforced server-side (error codes in parentheses):
+        - the caller has a profile with the 18+ confirmation (`profile_incomplete`);
+        - recipient is discoverable, active, not the caller, not blocked either way (`not_found`);
         - both members list `gym_id` (`gym_not_shared`);
         - `proposed_start_at` is 1 hour to 60 days ahead (`invalid_time`);
         - only one pending invitation per pair, either direction (`invitation_already_open`);
-        - at most 20 new invitations per day (`rate_limited`).
+        - at most 20 new invitations in any 24 hours (`rate_limited`, with `Retry-After`).
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -725,6 +730,9 @@ paths:
       tags: [invitations]
       operationId: acceptInvitation
       summary: Recipient accepts; opens (or reopens) the pair's chat.
+      description: |
+        Only the recipient, only while `pending` and before it expires; otherwise `invalid_state`
+        (the sender gets `invalid_state` too, never a hint about the recipient).
       parameters:
         - $ref: "#/components/parameters/InvitationId"
       responses:
@@ -765,6 +773,9 @@ paths:
       tags: [invitations]
       operationId: cancelInvitation
       summary: Sender withdraws a pending invitation, or either member cancels an accepted session.
+      description: |
+        An accepted session can be cancelled until it ends (`proposed_start_at` plus
+        `duration_minutes`). Anything else, including an expired invitation, is `invalid_state`.
       parameters:
         - $ref: "#/components/parameters/InvitationId"
       responses:
@@ -787,6 +798,9 @@ paths:
       tags: [chats]
       operationId: listChats
       summary: Chats the member is in, most recent activity first.
+      description: |
+        Ordered by the newest message (or the chat's creation when it has none). Chats with a
+        block in either direction are left out.
       parameters:
         - $ref: "#/components/parameters/Cursor"
         - $ref: "#/components/parameters/Limit"
@@ -826,9 +840,12 @@ paths:
       summary: Page back through history, or poll for new messages.
       description: |
         Without `after`: newest first, paged backwards with `cursor`.
-        With `after` (a message id): only newer messages, oldest first, for polling.
-        Clients poll every 5 seconds while the chat is on screen and stop in the
-        background. Also marks the chat read up to the newest returned message.
+        With `after` (a message id in this chat): only newer messages, oldest first, for
+        polling; `next_cursor` is always `null`, so poll again with the last id returned.
+        `after` and `cursor` cannot be combined, and an `after` that is not a message in this
+        chat is `validation_failed`. Clients poll every 5 seconds while the chat is on screen
+        and stop in the background. Also marks the chat read up to the newest returned
+        message (never backwards). Closed chats stay readable.
       parameters:
         - $ref: "#/components/parameters/ChatId"
         - name: after
@@ -856,6 +873,7 @@ paths:
       tags: [chats]
       operationId: sendMessage
       summary: "Send a message in an open chat."
+      description: A closed chat (after a block, unblock or account deletion) answers `chat_closed`.
       parameters:
         - $ref: "#/components/parameters/ChatId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -878,6 +896,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
         "422":
           $ref: "#/components/responses/RuleViolation"
         "429":
@@ -909,8 +929,9 @@ paths:
       operationId: blockMember
       summary: Block a member. Takes effect immediately and silently.
       description: |
-        Cancels pending invitations between the pair, closes their chat for both sides,
-        and hides each from the other everywhere. Idempotent.
+        Cancels the pair's pending invitations and accepted sessions that have not ended,
+        closes their chat for both sides, and hides each from the other everywhere.
+        Idempotent. Your own id, unknown and deleted accounts are `not_found`.
       parameters:
         - $ref: "#/components/parameters/AccountId"
       responses:
@@ -943,7 +964,11 @@ paths:
       description: |
         Reports are reviewed by the operator via the SQL runbook in `OPERATIONS.md`.
         The reported member is never told who reported them. Filing a report does not
-        block automatically; the client offers blocking alongside.
+        block automatically; the client offers blocking alongside. Reporting works whether
+        or not a block exists. `not_found` when the member is unknown or the caller, when an
+        `invitation` report names an invitation that is not between the two, or when a
+        `message` report names a message the reported member did not send in a chat with the
+        caller. A `message` report keeps a snapshot of the text. At most 20 per 24 hours.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -965,6 +990,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
         "429":
           $ref: "#/components/responses/RateLimited"
 
@@ -1121,6 +1148,8 @@ components:
       description: |
         `pending` -> `accepted` | `declined` | `cancelled` | `expired`;
         `accepted` -> `cancelled`. Pending invitations expire at `proposed_start_at`.
+        A block or account deletion cancels the pair's pending invitations and accepted
+        sessions that have not ended.
     ErrorCode:
       type: string
       enum:
@@ -1676,6 +1705,9 @@ components:
     InvitationParty:
       type: object
       additionalProperties: false
+      description: |
+        The other member as shown on invitations and chats. After that member deletes their
+        account, `display_name` is `Deleted climber` and both grades are `null`.
       required: [account_id, display_name, grade_min, grade_max]
       properties:
         account_id:
@@ -1683,9 +1715,13 @@ components:
         display_name:
           type: string
         grade_min:
-          $ref: "#/components/schemas/Grade"
+          oneOf:
+            - $ref: "#/components/schemas/Grade"
+            - type: "null"
         grade_max:
-          $ref: "#/components/schemas/Grade"
+          oneOf:
+            - $ref: "#/components/schemas/Grade"
+            - type: "null"
     Invitation:
       type: object
       additionalProperties: false
@@ -1746,7 +1782,7 @@ components:
         status:
           type: string
           enum: [open, closed]
-          description: "`closed` after a block or account deletion; history stays readable to the remaining member until they delete their account."
+          description: "`closed` after a block (hidden from both while the block lasts, still closed after unblocking until a new invitation is accepted) or after either member deletes their account. Closed chats stay readable."
         last_message:
           oneOf:
             - $ref: "#/components/schemas/Message"
