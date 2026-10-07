@@ -1,0 +1,8 @@
+#include "Base.xcconfig"
+
+BM_ENVIRONMENT = staging
+BUNDLE_ID_SUFFIX = .staging
+// Placeholder until T8 deploys the staging Worker.
+API_BASE_URL = https:/$()/api-staging.boulderme.app
+
+#include? "Local.xcconfig"

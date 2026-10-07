@@ -43,12 +43,15 @@ Then build `DATABASE_URL` from Project → Connect → Transaction pooler: user 
 4. `npm test`, then `npx wrangler dev` to serve on `http://localhost:8787`.
 5. Check: `curl http://localhost:8787/v1/health`.
 
-## 4. iOS app (later, T5 to T7)
+## 4. iOS app
 
-1. Install Xcode from the Mac App Store.
-2. Open `ios/BoulderMe.xcodeproj` (or generate it as T5 documents).
-3. Choose the **BoulderMe (Debug)** scheme and an iPhone simulator, press Run.
-4. On the Welcome screen tap **Explore demo**; no accounts are needed.
+1. Install Xcode 16 or newer from the Mac App Store (Xcode 26 adds Liquid Glass on floating controls).
+2. Open `ios/BoulderMe.xcodeproj`. No generator or packages are needed.
+3. Choose the **BoulderMe** scheme and an iPhone simulator, press Run. The Debug configuration talks to a local Worker at `http://localhost:8787`.
+4. On the Welcome screen tap **Explore the demo**; no accounts are needed.
+5. To run on your own iPhone, copy `ios/Config/Local.xcconfig.example` to `ios/Config/Local.xcconfig` and set `DEVELOPMENT_TEAM`.
+
+From the command line: `xcodebuild -project ios/BoulderMe.xcodeproj -scheme BoulderMe -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test`.
 
 ## 5. Cloudflare and Apple (later, T8)
 

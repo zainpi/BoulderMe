@@ -17,6 +17,7 @@ coverage/
 ios/**/xcuserdata/
 ios/**/*.xcuserstate
 ios/build/
+ios/Config/Local.xcconfig
 DerivedData/
 *.ipa
 *.dSYM.zip

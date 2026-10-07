@@ -1,0 +1,8 @@
+#include "Base.xcconfig"
+
+BM_ENVIRONMENT = debug
+BUNDLE_ID_SUFFIX = .debug
+// A Worker running locally with `wrangler dev`. The simulator reaches the Mac at localhost.
+API_BASE_URL = http:/$()/localhost:8787
+
+#include? "Local.xcconfig"
