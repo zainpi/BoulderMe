@@ -14,7 +14,7 @@ What BoulderMe stores, who can see it, why, and how long it is kept. This is the
 | Data | Source | Visible to | Purpose | Retention |
 |---|---|---|---|---|
 | Apple user identifier (`sub`), stored only as a SHA-256 hash | Sign in with Apple | Nobody (server only) | Identify the account | Until deletion; hash kept in tombstone to block resurrection |
-| Apple refresh token, encrypted | Sign in with Apple | Nobody (server only) | Revoke Apple sign-in on deletion | Deleted once revocation succeeds |
+| Apple refresh token, encrypted | Sign in with Apple | Nobody (server only) | Revoke Apple sign-in on deletion | Erased once revocation succeeds, or after the last of 8 retries fails |
 | Email (incl. private relay) | Not stored | n/a | Not needed in v1 | n/a |
 | Given name from Apple | First sign-in only | Pre-fills display name, then discarded | Convenience | Not stored separately |
 | Display name, grade range, styles, intro | Member | All signed-in members while discoverable; invite/chat partners | Matching | Until edited or account deleted |
@@ -41,7 +41,11 @@ What BoulderMe stores, who can see it, why, and how long it is kept. This is the
 
 ## Account deletion
 
-`DELETE /v1/me` immediately blocks sign-in and hides the member everywhere, then deletes profile, gym access, availability, blocks they made, gym requests and messages they sent; cancels open invitations; closes chats; revokes all sessions and the Apple token (retried until it succeeds). Invitations and chats the other member still holds show "Deleted climber". Reports about the member are retained as described above.
+`DELETE /v1/me` runs one database function (`boulderme.delete_account`, also used by the operator) that, in a single transaction, revokes all sessions, cancels open invitations and upcoming sessions, closes chats, and deletes the profile, gym access, availability, blocks they made, gym suggestions, read markers and every message they sent. The account row stays only as an id (invitations, chats and reports point at it) with its Apple ID hash replaced; the hash moves to a tombstone. The Apple token is revoked at once and retried daily with backoff (up to 8 attempts); it is erased when revocation succeeds or gives up. Invitations and chats the other member still holds show "Deleted climber" with no grades. Reports about the member, and reports they filed, are retained as described above.
+
+## Data export
+
+`GET /v1/me/export` returns the profile, gyms, availability, every invitation and chat the member can see in the app (chats with all their messages, including the other member's), their blocks, the reports they filed (without the reported text snapshot) and their gym suggestions. Limited to 5 per hour.
 
 ## App Store privacy label (draft)
 

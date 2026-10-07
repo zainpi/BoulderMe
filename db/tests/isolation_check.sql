@@ -48,7 +48,7 @@ with expected(tbl, privs) as (values
   ('invitations', 'SELECT,INSERT,UPDATE,DELETE'), ('chat_messages', 'SELECT,INSERT,UPDATE,DELETE'),
   ('chat_read_states', 'SELECT,INSERT,UPDATE,DELETE'), ('blocks', 'SELECT,INSERT,UPDATE,DELETE'),
   ('idempotency_keys', 'SELECT,INSERT,UPDATE,DELETE'), ('rate_limits', 'SELECT,INSERT,UPDATE,DELETE'),
-  ('gyms', 'SELECT'), ('gym_requests', 'SELECT,INSERT'), ('reports', 'SELECT,INSERT'), ('schema_migrations', '')
+  ('gyms', 'SELECT'), ('gym_requests', 'SELECT,INSERT,DELETE'), ('reports', 'SELECT,INSERT'), ('schema_migrations', '')
 ),
 actual as (
   select c.relname as tbl,
