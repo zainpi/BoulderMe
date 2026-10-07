@@ -4,4 +4,7 @@
 BM_ENVIRONMENT = production
 BUNDLE_ID_SUFFIX =
 
+// Sign in with Apple. Needs a paid Apple Developer team with the capability enabled.
+CODE_SIGN_ENTITLEMENTS = Config/BoulderMe.entitlements
+
 #include? "Local.xcconfig"

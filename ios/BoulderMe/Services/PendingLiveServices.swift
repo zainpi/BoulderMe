@@ -1,6 +1,7 @@
 import Foundation
 
-/// Stand-in for the live Worker client until T6/T7 replace it. Every call
+/// Stand-in for the T7 areas (discovery, invitations, chats, safety) until T7
+/// adds them to `LiveServices`. Every call
 /// throws `AppError.notImplemented`, so signed-in screens show a friendly
 /// "coming soon" state instead of crashing.
 final class PendingLiveServices: AccountService, ProfileService, GymService, AvailabilityService,

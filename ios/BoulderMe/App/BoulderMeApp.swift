@@ -4,7 +4,7 @@ import SwiftUI
 /// hands them down through the environment.
 @main
 struct BoulderMeApp: App {
-    @State private var app = AppModel(config: .load())
+    @State private var app = AppModel.live(config: .load())
 
     var body: some Scene {
         WindowGroup {

@@ -5,4 +5,7 @@ BUNDLE_ID_SUFFIX = .staging
 // Placeholder until T8 deploys the staging Worker.
 API_BASE_URL = https:/$()/api-staging.boulderme.app
 
+// Sign in with Apple. Needs a paid Apple Developer team with the capability enabled.
+CODE_SIGN_ENTITLEMENTS = Config/BoulderMe.entitlements
+
 #include? "Local.xcconfig"

@@ -5,4 +5,8 @@ BUNDLE_ID_SUFFIX = .debug
 // A Worker running locally with `wrangler dev`. The simulator reaches the Mac at localhost.
 API_BASE_URL = http:/$()/localhost:8787
 
+// Sign in with Apple is off in Debug so personal (free) teams can still build.
+// To try it, add `CODE_SIGN_ENTITLEMENTS = Config/BoulderMe.entitlements` to Local.xcconfig
+// with a team that has the capability. Demo mode works without it.
+
 #include? "Local.xcconfig"

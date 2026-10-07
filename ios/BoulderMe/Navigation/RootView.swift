@@ -8,9 +8,17 @@ struct RootView: View {
         @Bindable var router = app.router
         Group {
             switch app.mode {
+            case .launching:
+                LaunchView()
+                    .transition(.opacity)
             case .welcome:
                 WelcomeView()
                     .transition(.opacity)
+            case .onboarding:
+                if let onboarding = app.onboarding {
+                    OnboardingView(model: onboarding)
+                        .transition(.opacity)
+                }
             case .demo, .account:
                 MainTabView()
                     .transition(.opacity)
@@ -25,6 +33,23 @@ struct RootView: View {
                 SignInRequiredSheet()
             }
         }
+    }
+}
+
+/// Shown for the moment it takes to restore a stored session.
+struct LaunchView: View {
+    var body: some View {
+        ZStack {
+            Palette.background.ignoresSafeArea()
+            VStack(spacing: Spacing.m) {
+                Image(systemName: "figure.climbing")
+                    .font(.system(size: 56, weight: .bold))
+                    .foregroundStyle(Palette.accent)
+                ProgressView().tint(Palette.accent)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Loading BoulderMe")
     }
 }
 
@@ -75,7 +100,11 @@ struct MainTabView: View {
                 MyProfileView()
                     .navigationDestination(for: ProfileRoute.self) { route in
                         switch route {
+                        case .editProfile: EditProfileView()
+                        case .gyms: MyGymsView()
+                        case .availability: MyAvailabilityView()
                         case .settings: SettingsView()
+                        case .deleteAccount: DeleteAccountView()
                         case .designSystem: DesignSystemGallery()
                         }
                     }

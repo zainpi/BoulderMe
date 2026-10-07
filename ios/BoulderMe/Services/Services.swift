@@ -1,13 +1,27 @@
 import Foundation
 
 // Protocol services, one per area of docs/api/openapi.yaml. Screens only talk to
-// these protocols; the composition root (AppEnvironment) picks demo fixtures or
-// the live Worker client. Live implementations land in T6 (account, profile,
+// these protocols; the composition root (`AppModel.live`) picks demo fixtures or
+// the live Worker client (`LiveServices`). Live implementations: T6 (account, profile,
 // gyms, availability) and T7 (discovery, invitations, chats, safety).
+
+/// Sign in with Apple and the stored session. Not part of `ServiceContainer`:
+/// demo mode has no session, so only `AppModel` talks to it.
+protocol AuthService: Sendable {
+    /// The account with a stored session, if any.
+    func storedAccountId() async -> EntityID?
+    func nonce() async throws -> AuthNonce
+    func signInWithApple(_ request: AppleSignInRequest) async throws -> Session
+    /// Revokes the session on the server when reachable; always forgets it locally.
+    func signOut() async
+    /// Emits when the server ends the session without the member asking.
+    var sessionEnded: AsyncStream<SessionEndReason> { get }
+}
 
 protocol AccountService: Sendable {
     func me() async throws -> Me
     func exportData() async throws -> Data
+    /// Deletes the account and forgets the session on this device.
     func deleteAccount() async throws
 }
 

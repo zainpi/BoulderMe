@@ -1,11 +1,9 @@
 import SwiftUI
 
-/// First screen when signed out. Sign in with Apple is wired in T6; until then
-/// it explains that and points to the demo.
+/// First screen when signed out: Sign in with Apple, or explore the demo.
 struct WelcomeView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var showSignInSoon = false
     @State private var cardsIn = false
 
     var body: some View {
@@ -23,13 +21,24 @@ struct WelcomeView: View {
                         .multilineTextAlignment(.center)
                 }
                 previewStack
+                if let notice = app.notice {
+                    Label(notice, systemImage: "info.circle.fill")
+                        .font(Typography.callout)
+                        .foregroundStyle(Palette.ink)
+                        .padding(Spacing.s)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Palette.accentSoft, in: RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
+                }
                 VStack(spacing: Spacing.s) {
-                    Button {
-                        showSignInSoon = true
-                    } label: {
-                        Label("Sign in with Apple", systemImage: "apple.logo")
+                    AppleSignInButton(isWorking: app.isSigningIn) {
+                        Task { await app.signInWithApple() }
                     }
-                    .buttonStyle(.cozyPrimary)
+                    if let error = app.signInError {
+                        Text(error.userMessage)
+                            .font(Typography.caption)
+                            .foregroundStyle(Palette.danger)
+                            .multilineTextAlignment(.center)
+                    }
 
                     Button("Explore the demo") { app.enterDemo() }
                         .buttonStyle(.cozySecondary)
@@ -46,12 +55,6 @@ struct WelcomeView: View {
             .frame(maxWidth: .infinity)
         }
         .background(Palette.background.ignoresSafeArea())
-        .alert("Sign in is almost ready", isPresented: $showSignInSoon) {
-            Button("Explore the demo") { app.enterDemo() }
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Sign in with Apple arrives in the next build. The demo shows everything in the meantime.")
-        }
         .onAppear {
             withAnimation(Motion.bouncy(reduceMotion: reduceMotion)?.delay(0.15)) { cardsIn = true }
         }
@@ -103,17 +106,55 @@ struct SignInRequiredSheet: View {
         VStack(spacing: Spacing.l) {
             EmptyStateView(systemImage: "person.badge.key.fill", title: AppError.requiresAccount.title,
                            message: AppError.requiresAccount.userMessage)
+            AppleSignInButton(isWorking: app.isSigningIn) {
+                Task {
+                    await app.signInWithApple()
+                    if !app.isDemo { dismiss() }
+                }
+            }
+            if let error = app.signInError {
+                Text(error.userMessage).font(Typography.caption).foregroundStyle(Palette.danger)
+            }
             Button("Keep exploring") { dismiss() }
-                .buttonStyle(.cozyPrimary)
+                .buttonStyle(.cozySecondary)
             Button("Leave the demo") {
                 dismiss()
                 app.leaveDemo()
             }
-            .buttonStyle(.cozySecondary)
+            .font(Typography.callout)
         }
         .padding(Spacing.l)
         .presentationDetents([.medium, .large])
         .background(Palette.background.ignoresSafeArea())
+    }
+}
+
+/// Sign in with Apple in the system's black/white style (Apple's HIG), sized
+/// like the cozy buttons. A custom button so the nonce can be fetched first.
+struct AppleSignInButton: View {
+    @Environment(\.colorScheme) private var colorScheme
+    var isWorking = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: Spacing.xs) {
+                if isWorking {
+                    ProgressView().tint(colorScheme == .dark ? .black : .white)
+                } else {
+                    Image(systemName: "apple.logo")
+                }
+                Text("Sign in with Apple")
+            }
+            .font(.system(.headline, design: .default).weight(.semibold))
+            .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .background(colorScheme == .dark ? Color.white : Color.black,
+                        in: RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(isWorking)
+        .accessibilityLabel("Sign in with Apple")
     }
 }
 
