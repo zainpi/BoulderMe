@@ -49,14 +49,14 @@ final class AppModel {
         auth: any AuthService,
         liveServices: ServiceContainer,
         makeDemoServices: @escaping () -> ServiceContainer = { DemoBackend().container },
-        appleSignIn: any AppleSignInProviding = SystemAppleSignIn(),
+        appleSignIn: (any AppleSignInProviding)? = nil,
         defaults: UserDefaults = .standard
     ) {
         self.config = config
         self.auth = auth
         self.liveServices = liveServices
         self.makeDemoServices = makeDemoServices
-        self.appleSignIn = appleSignIn
+        self.appleSignIn = appleSignIn ?? SystemAppleSignIn()
         self.defaults = defaults
         self.services = liveServices
 
