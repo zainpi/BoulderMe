@@ -15,7 +15,7 @@ Server records live in Postgres schema `boulderme` (migrations in `db/migrations
 | **ChatThread** | `id`, `account_low_id`, `account_high_id` (unique pair, low < high), `status` (`open`, `closed`), `created_at`, `updated_at` | Created on the pair's first accepted invitation; reopened by a later acceptance unless blocked |
 | **ChatReadState** | `chat_id`, `account_id`, `last_read_message_id` | Drives unread counts |
 | **ChatMessage** | `id`, `chat_id`, `sender_id` (nullable after deletion), `body` (1 to 1000), `created_at` | Only while the chat is `open` |
-| **Block** | `blocker_id`, `blocked_id` (PK pair), `blocked_display_name`, `created_at` | Symmetric effect: hides both ways, cancels pending invites, closes chat |
+| **Block** | `blocker_id`, `blocked_id` (PK pair), `blocked_display_name`, `created_at` | Symmetric effect: hides both ways, cancels pending invites and unfinished sessions, closes chat |
 | **Report** | `id`, `reporter_id`, `reported_id`, `context`, `invitation_id`, `message_id`, `reason`, `details`, `message_snapshot`, `status`, `reviewer_note`, `created_at`, `resolved_at` | `message_snapshot` keeps the reported text even if later deleted |
 | **GymRequest** | `id`, `account_id`, `name`, `city`, `region`, `website_url`, `note`, `status` | Review queue only |
 | **IdempotencyKey** | `account_id`, `key`, `route`, `request_hash`, `response_status`, `response_body`, `created_at` | 24 hour retention. Same key + different body → `idempotency_mismatch` |
@@ -29,11 +29,26 @@ pending ──accept (recipient)──▶ accepted ──cancel (either)──�
    │
    ├──decline (recipient)──▶ declined
    ├──cancel (sender)──────▶ cancelled
-   ├──block (either)───────▶ cancelled
+   ├──block or deletion (either)──▶ cancelled
    └──now ≥ expires_at─────▶ expired   (expires_at = proposed_start_at)
+
+accepted ──block or deletion (either), before the session ends──▶ cancelled
 ```
 
-Any other transition returns `409 invalid_state`. Expiry is evaluated on read and by a daily cleanup, so a stale `pending` row is never acted on.
+Any other transition returns `409 invalid_state`. An accepted session can be cancelled until `proposed_start_at + duration_minutes`. Expiry is evaluated on read and by the daily cleanup, and a stale `pending` row is marked `expired` before a new invitation for the pair is created, so it never holds the one-per-pair slot.
+
+Other invitation rules (all `api/src/routes/invitations.ts`): the sender needs a profile with the 18+ confirmation; the recipient must be discoverable and active, with no block either way (`not_found`); both must list the gym; the time must be 1 hour to 60 days ahead; at most 20 sent per 24 hours.
+
+## Chats
+
+- Accepting an invitation opens the pair's chat, creating it the first time and reopening it later. Its id is stored on the invitation.
+- Messages are stamped at the server's time, or 1 ms after the chat's newest message if that is later, while the chat row is locked, so `(created_at, id)` order always matches send order and polling with `after` never skips one.
+- Reading messages moves the reader's `chat_read_states` marker forward to the newest message returned (never backwards); sending moves the sender's marker to their own message.
+- A block closes the chat and hides it from both; unblocking leaves it `closed` (readable, no sending) until a new invitation is accepted.
+
+## Account deletion
+
+`boulderme.delete_account(account_id, now)` (migration 0002) does everything in one transaction; see `docs/privacy-inventory.md` for what is removed and kept. The Apple ID hash moves to `tombstones`; sign-in with it answers `account_deleted` while revocation is `pending` and creates a new account afterwards.
 
 ## Visibility rules
 

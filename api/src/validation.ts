@@ -146,6 +146,65 @@ export const discoveryQuerySchema = z
     message: "must_not_exceed_grade_max",
   });
 
+// ------------------------------------------------------------------ invitations, chats, safety, account
+
+const RFC3339_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$/;
+
+export const timestampInput = z
+  .string()
+  .regex(RFC3339_RE, "invalid_timestamp")
+  .transform((s) => new Date(s))
+  .refine((d) => !Number.isNaN(d.getTime()), { message: "invalid_timestamp" });
+
+const page = {
+  cursor: z.string().max(512).optional(),
+  limit: intParam(z.number().int().min(1).max(50)).optional(),
+};
+
+export const pageQuerySchema = z.strictObject(page);
+
+export const invitationInputSchema = z.strictObject({
+  recipient_account_id: uuid,
+  gym_id: uuid,
+  proposed_start_at: timestampInput,
+  duration_minutes: z.number().int().min(30).max(300).optional().transform((v) => v ?? 120),
+  note: nullableText(200, { multiline: true }),
+});
+
+export const invitationStatus = z.enum(["pending", "accepted", "declined", "cancelled", "expired"]);
+
+export const invitationListQuerySchema = z.strictObject({
+  box: z.enum(["incoming", "outgoing"]),
+  status: invitationStatus.optional(),
+  ...page,
+});
+
+export const messageListQuerySchema = z
+  .strictObject({ after: uuid.optional(), ...page })
+  .refine((v) => v.after === undefined || v.cursor === undefined, { path: ["after"], message: "not_with_cursor" });
+
+export const messageInputSchema = z.strictObject({ body: text(1, 1000, { multiline: true }) });
+
+const optionalId = z.union([uuid, z.null()]).optional().transform((v) => v ?? null);
+
+export const reportInputSchema = z
+  .strictObject({
+    reported_account_id: uuid,
+    context: z.enum(["profile", "invitation", "message"]),
+    invitation_id: optionalId,
+    message_id: optionalId,
+    reason: z.enum(["harassment", "inappropriate_content", "spam", "fake_profile", "safety_concern", "underage", "other"]),
+    details: nullableText(1000, { multiline: true }),
+  })
+  .superRefine((v, ctx) => {
+    if (v.context === "invitation" && v.invitation_id === null) ctx.addIssue({ code: "custom", path: ["invitation_id"], message: "required_for_context" });
+    if (v.context !== "invitation" && v.invitation_id !== null) ctx.addIssue({ code: "custom", path: ["invitation_id"], message: "not_allowed_for_context" });
+    if (v.context === "message" && v.message_id === null) ctx.addIssue({ code: "custom", path: ["message_id"], message: "required_for_context" });
+    if (v.context !== "message" && v.message_id !== null) ctx.addIssue({ code: "custom", path: ["message_id"], message: "not_allowed_for_context" });
+  });
+
+export const deleteAccountSchema = z.strictObject({ confirm: z.literal("DELETE", { message: "must_be_delete" }) });
+
 // ------------------------------------------------------------------ helpers
 
 /** Parses `value` or throws `validation_failed` with a `fields` map of stable reason codes. */

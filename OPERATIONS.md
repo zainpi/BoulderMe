@@ -33,26 +33,62 @@ Restore only BoulderMe: `pg_restore --dbname="$DATABASE_ADMIN_URL" --schema=boul
 
 ## Housekeeping (automatic)
 
-The Worker's daily cron (04:17 UTC, `wrangler.toml`) deletes expired sign-in nonces, rate-limit windows older than two days, idempotency keys older than 24 hours, and refresh sessions that expired or were revoked more than 30 days ago. Its log line is `"event":"housekeeping"` with a count per table. Nothing to do unless it stops appearing.
+The Worker's daily cron (04:17 UTC, `wrangler.toml`) marks pending invitations whose time has passed as `expired`, deletes expired sign-in nonces, rate-limit windows older than two days, idempotency keys older than 24 hours, and refresh sessions that expired or were revoked more than 30 days ago, then retries Apple token revocation for deleted accounts (below). Its log line is `"event":"housekeeping"` with a count per table and `apple_revocations` (`done`, `retry`, `failed`). Nothing to do unless it stops appearing or `failed` is above zero.
 
 ## Moderation (reports)
 
-Review open reports at least every two days. Exact SQL lands with T4; the shape is:
+Review open reports at least every two days. Run these as `postgres` in the Supabase SQL editor (the API role cannot change reports). Never tell the reported member who reported them.
 
 ```sql
--- Open reports, oldest first
-select id, reason, context, created_at, details, message_snapshot
-from boulderme.reports where status = 'open' order by created_at;
+-- 1. Open reports, oldest first, with how often each member has been reported
+select r.id, r.created_at, r.reason, r.context, r.reported_id,
+       (select count(*) from boulderme.reports x where x.reported_id = r.reported_id) as times_reported,
+       p.display_name, r.details, r.message_snapshot, r.invitation_id
+from boulderme.reports r
+left join boulderme.profiles p on p.account_id = r.reported_id
+where r.status = 'open'
+order by r.created_at;
 
--- Mark reviewed
-update boulderme.reports set status = 'actioned', reviewer_note = '<what you did>', resolved_at = now() where id = '<report id>';
+-- 2. Claim one while you look into it
+update boulderme.reports set status = 'reviewing' where id = '<report id>';
+
+-- 3. Close it: 'dismissed' (nothing wrong) or 'actioned' (you did something below)
+update boulderme.reports
+set status = 'actioned', reviewer_note = '<what you did>', resolved_at = now()
+where id = '<report id>';
 ```
 
-Actions available: dismiss, hide the reported member from discovery (`update boulderme.profiles set discoverable = false ...`), or suspend the account (`update boulderme.accounts set status = 'deleting' ...` then run deletion). Serious safety threats go to local police; keep the report row.
+Actions, mildest first:
+
+```sql
+-- Hide the member from discovery (they can turn it back on, so pair with a warning by email if you have one)
+update boulderme.profiles set discoverable = false where account_id = '<member id>';
+
+-- Suspend: signs them out everywhere and refuses sign-in; their data stays for review
+update boulderme.accounts set status = 'deleting' where id = '<member id>';
+update boulderme.refresh_sessions set revoked_at = now() where account_id = '<member id>' and revoked_at is null;
+
+-- Lift a suspension
+update boulderme.accounts set status = 'active' where id = '<member id>' and status = 'deleting';
+
+-- Remove the account for good (same function the app's Delete account button uses)
+select boulderme.delete_account('<member id>', now());
+```
+
+Serious safety threats go to local police; keep the report row. Reports are kept through account deletion; delete resolved ones older than a year (`delete from boulderme.reports where resolved_at < now() - interval '1 year';`).
 
 ## Deleting a member's data on request
 
-Members delete themselves in Settings → Delete account. If someone asks by email, verify they control the account (ask them to sign in and use the in-app button); the operator path is the deletion job from T4 **(later)**.
+Members delete themselves in Settings → Delete account (`DELETE /v1/me`). If someone asks by email, verify they control the account (ask them to sign in and use the in-app button). If they cannot, and you are satisfied it is them, run `select boulderme.delete_account('<account id>', now());` as `postgres`.
+
+Deletion is immediate and cannot be undone. It leaves a tombstone holding the Apple ID hash; the Worker revokes the member's Apple sign-in right away and the daily cron retries with backoff up to 8 attempts. Check stuck ones with:
+
+```sql
+select account_id, apple_revocation_status, attempts, next_attempt_at
+from boulderme.tombstones where apple_revocation_status in ('pending', 'failed');
+```
+
+While a tombstone is `pending`, the same Apple ID cannot sign in again; once it is `done`, `failed` or `not_needed`, signing in starts a brand new account. A `failed` revocation means the member should remove BoulderMe under Settings → Apple ID → Sign in with Apple themselves; the stored token is already erased.
 
 ## Pausing or shutting down
 

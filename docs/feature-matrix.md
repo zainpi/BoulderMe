@@ -18,8 +18,8 @@ Update the Status column in the PR that changes it. "Implemented" means server r
 | Report + moderation runbook | Core | Server and SQL runbook (T4) and iOS (T7) built; not yet run end to end | T4 | T7 | T4, T7 | none |
 | Pause discovery | Core | Server (T3) and iOS (T6) built; not yet run end to end | T3 | T6 | T3, T6 | none |
 | Edit / remove profile, gyms, availability | Core | Server (T3) and iOS (T6) built; not yet run end to end | T3 | T6 | T3, T6 | none |
-| Data export | Core | iOS built (T6); API pending (T4) | T4 | T6 | T4, T6 | none |
-| Account deletion (incl. Apple revocation) | Core | iOS built (T6); API pending (T4) | T4 | T6 | T4, T6 | Apple key for revocation |
+| Data export | Core | Server (T4) and iOS (T6) built; not yet run end to end | T4 | T6 | T4, T6 | none |
+| Account deletion (incl. Apple revocation) | Core | Server (T4) and iOS (T6) built; migration 0002 must be applied to PulseDeals before deploy | T4 | T6 | T4, T6 | Apple key for revocation |
 | Guided onboarding (state machine, 18+, visibility explainer) | Core | iOS built (T6); server routes ready (T3); not yet run end to end | n/a | T6 | T6 | none |
 | Demo mode | Core | Implemented | n/a | T5 | T5 | none |
 | Design system (cozy, Dynamic Type, dark mode, Liquid Glass with fallback) | Core | Implemented | n/a | T5 | T5 | none |

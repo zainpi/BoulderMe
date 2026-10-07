@@ -6,6 +6,7 @@ import { SignJWT, createRemoteJWKSet, importPKCS8, jwtVerify, type JWTVerifyGetK
 export const APPLE_ISSUER = "https://appleid.apple.com";
 const APPLE_JWKS_URL = new URL("https://appleid.apple.com/auth/keys");
 const APPLE_TOKEN_URL = "https://appleid.apple.com/auth/token";
+const APPLE_REVOKE_URL = "https://appleid.apple.com/auth/revoke";
 
 export interface AppleIdentity {
   sub: string;
@@ -20,6 +21,11 @@ export interface AppleClient {
    * to revoke the Apple sign-in when the account is deleted. Null when not configured.
    */
   exchangeAuthorizationCode(code: string): Promise<string | null>;
+  /**
+   * Revokes the Apple refresh token (account deletion). False when Apple credentials are
+   * not configured; throws `AppleUnavailableError` / `AppleRejectedError` otherwise.
+   */
+  revokeRefreshToken(refreshToken: string): Promise<boolean>;
 }
 
 export class AppleUnavailableError extends Error {}
@@ -72,6 +78,25 @@ export class LiveAppleClient implements AppleClient {
     if (!response.ok) throw new AppleRejectedError(`Apple rejected the authorization code (${response.status})`);
     const body = (await response.json()) as { refresh_token?: unknown };
     return typeof body.refresh_token === "string" ? body.refresh_token : null;
+  }
+
+  async revokeRefreshToken(refreshToken: string): Promise<boolean> {
+    const { teamId, keyId, privateKey, bundleId } = this.config;
+    if (!teamId || !keyId || !privateKey) return false;
+    const clientSecret = await appleClientSecret({ teamId, keyId, privateKey, bundleId });
+    let response: Response;
+    try {
+      response = await this.fetcher(APPLE_REVOKE_URL, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ client_id: bundleId, client_secret: clientSecret, token: refreshToken, token_type_hint: "refresh_token" }),
+      });
+    } catch {
+      throw new AppleUnavailableError("Apple revoke endpoint unreachable");
+    }
+    if (response.status >= 500) throw new AppleUnavailableError(`Apple revoke endpoint returned ${response.status}`);
+    if (!response.ok) throw new AppleRejectedError(`Apple rejected the revocation (${response.status})`);
+    return true;
   }
 }
 

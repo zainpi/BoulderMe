@@ -55,6 +55,9 @@ export class Harness {
   logs: Record<string, unknown>[] = [];
   /** What the fake Apple token endpoint answers next. */
   appleTokenResponse: { status: number; body: unknown } = { status: 200, body: { refresh_token: "apple-refresh-token-secret" } };
+  /** What the fake Apple revoke endpoint answers next, and the tokens it was asked to revoke. */
+  appleRevokeStatus = 200;
+  revokedAppleTokens: string[] = [];
   private subCounter = 0;
   deps!: Deps;
 
@@ -88,7 +91,13 @@ export class Harness {
       apple: new LiveAppleClient(
         { bundleId: BUNDLE_ID, teamId: "TEAM123456", keyId: "KEY1234567", privateKey: k.esPrivateKeyPem },
         createLocalJWKSet(k.jwks),
-        async () => new Response(JSON.stringify(this.appleTokenResponse.body), { status: this.appleTokenResponse.status }),
+        async (input, init) => {
+          if (String(input).endsWith("/auth/revoke")) {
+            if (this.appleRevokeStatus === 200) this.revokedAppleTokens.push(new URLSearchParams(String(init?.body)).get("token")!);
+            return new Response(null, { status: this.appleRevokeStatus });
+          }
+          return new Response(JSON.stringify(this.appleTokenResponse.body), { status: this.appleTokenResponse.status });
+        },
       ),
       now: () => this.clock,
       log: (e) => this.logs.push(e),
@@ -103,6 +112,16 @@ export class Harness {
 
   advance(seconds: number): void {
     this.clock = new Date(this.clock.getTime() + seconds * 1000);
+  }
+
+  /** Moves the clock and refreshes each session's (15 minute) access token in place. */
+  async travel(seconds: number, ...sessions: Session[]): Promise<void> {
+    this.advance(seconds);
+    for (const s of sessions) {
+      const res = await this.request("POST", "/v1/auth/refresh", { body: { refresh_token: s.refresh_token } });
+      if (res.status !== 200) throw new Error(`refresh failed: ${res.status} ${JSON.stringify(res.body)}`);
+      Object.assign(s, { access_token: res.body.access_token, refresh_token: res.body.refresh_token });
+    }
   }
 
   // ---------------------------------------------------------------- HTTP
@@ -197,6 +216,31 @@ export class Harness {
     return s;
   }
 
+  /** Sends an invitation through the API, two days ahead by default. */
+  async invite(from: Session, to: Session, gymId: string, overrides: Record<string, unknown> = {}): Promise<TestResponse> {
+    return this.request("POST", "/v1/invitations", {
+      token: from.access_token,
+      headers: { "idempotency-key": crypto.randomUUID() },
+      body: {
+        recipient_account_id: to.account_id, gym_id: gymId,
+        proposed_start_at: new Date(this.clock.getTime() + 2 * 86_400_000).toISOString(), ...overrides,
+      },
+    });
+  }
+
+  /** Invites and accepts; returns the chat id. */
+  async connect(a: Session, b: Session, gymId: string): Promise<string> {
+    const inv = await this.invite(a, b, gymId);
+    if (inv.status !== 201) throw new Error(`invite failed: ${inv.status} ${JSON.stringify(inv.body)}`);
+    const res = await this.request("POST", `/v1/invitations/${inv.body.invitation_id}/accept`, { token: b.access_token });
+    if (res.status !== 200) throw new Error(`accept failed: ${res.status} ${JSON.stringify(res.body)}`);
+    return res.body.chat_id;
+  }
+
+  async send(s: Session, chatId: string, body: string): Promise<TestResponse> {
+    return this.request("POST", `/v1/chats/${chatId}/messages`, { token: s.access_token, headers: { "idempotency-key": crypto.randomUUID() }, body: { body } });
+  }
+
   // ---------------------------------------------------------------- operator-only setup (not reachable through the API)
 
   async addGym(g: Partial<GymRecord> & Pick<GymRecord, "name" | "city">): Promise<GymRecord> {
@@ -230,7 +274,10 @@ export class Harness {
       await this.admin`insert into boulderme.invitations (sender_id, recipient_id, gym_id, proposed_start_at, expires_at, status, chat_id)
         values (${senderId}, ${recipientId}, ${gymId}, ${start}, ${start}, ${status}, ${chatId})`;
     } else {
-      (this.repo as MemoryRepository).addInvitation({ senderId, recipientId, status: status as never, expiresAt: start });
+      (this.repo as MemoryRepository).addInvitation({
+        senderId, recipientId, gymId, status: status as never, proposedStartAt: start, durationMinutes: 120, note: null,
+        createdAt: this.clock, respondedAt: null, expiresAt: start,
+      });
     }
   }
 
@@ -249,6 +296,21 @@ export class Harness {
     const hash = await sha256Hex(sub);
     if (this.admin) await this.admin`insert into boulderme.tombstones (apple_sub_hash, account_id) values (${hash}, ${crypto.randomUUID()})`;
     else (this.repo as MemoryRepository).addTombstone(hash);
+  }
+
+  /** Rows an operator would see, for asserting what deletion and reports left behind. */
+  async adminQuery(text: string, params: unknown[] = []): Promise<Record<string, any>[]> {
+    if (!this.admin) throw new Error("postgres only");
+    return (await this.admin.unsafe(text, params as any[])) as unknown as Record<string, any>[];
+  }
+
+  async tombstoneStatus(sub: string): Promise<string | null> {
+    const hash = await sha256Hex(sub);
+    if (this.admin) {
+      const [row] = await this.admin`select apple_revocation_status from boulderme.tombstones where apple_sub_hash = ${hash}`;
+      return row?.apple_revocation_status ?? null;
+    }
+    return (this.repo as MemoryRepository).state.tombstones.get(hash)?.status ?? null;
   }
 
   async storedAppleToken(accountId: string): Promise<string | null> {
