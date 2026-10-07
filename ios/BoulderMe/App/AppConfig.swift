@@ -20,7 +20,7 @@ struct AppConfig: Sendable {
     static func load(bundle: Bundle = .main, arguments: UserDefaults = .standard) -> AppConfig {
         let info = bundle.infoDictionary ?? [:]
         let environment = (info["BMEnvironment"] as? String).flatMap(Environment.init(rawValue:)) ?? .production
-        let fallback = URL(string: "https://api.boulderme.app")!
+        let fallback = URL(string: "https://boulderme-api.runsit.ca")!
         let apiBaseURL = (info["BMAPIBaseURL"] as? String).flatMap(URL.init(string:)) ?? fallback
         var config = AppConfig(
             environment: environment,

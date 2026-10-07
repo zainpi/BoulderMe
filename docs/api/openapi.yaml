@@ -35,10 +35,10 @@ info:
       discovery, profiles, invitations or chats, and gets `not_found` rather than
       a hint that a block exists.
 servers:
-  - url: https://api.boulderme.app
-    description: Production (placeholder hostname until a domain is chosen)
-  - url: https://boulderme-api-staging.workers.dev
-    description: Staging (placeholder; real workers.dev subdomain is set at deploy)
+  - url: https://boulderme-api.runsit.ca
+    description: Production
+  - url: https://boulderme-api-staging.runsit.ca
+    description: Staging
   - url: http://localhost:8787
     description: Local `wrangler dev`
 security:

@@ -30,7 +30,7 @@ CODE_SIGN_STYLE = Automatic
 // Read at runtime through Info.plist (see AppConfig.swift).
 // xcconfig treats `//` as a comment, so URLs use `/$()/`.
 BM_ENVIRONMENT = production
-API_BASE_URL = https:/$()/api.boulderme.app
+API_BASE_URL = https:/$()/boulderme-api.runsit.ca
 
 // Settings → About links, hosted on runsit.ca (zainpi/runIT, src/app/boulderme).
 PRIVACY_URL = https:/$()/runsit.ca/boulderme/privacy/

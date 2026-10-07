@@ -21,8 +21,11 @@ enabled = true
 name = "boulderme-api-staging"
 vars = { ENVIRONMENT = "staging", APP_VERSION = "0.1.0" }
 triggers = { crons = ["17 4 * * *"] }
+# All BoulderMe URLs live on runsit.ca (its zone must be in this Cloudflare account).
+routes = [{ pattern = "boulderme-api-staging.runsit.ca", custom_domain = true }]
 
 [env.production]
 name = "boulderme-api"
 vars = { ENVIRONMENT = "production", APP_VERSION = "0.1.0" }
 triggers = { crons = ["17 4 * * *"] }
+routes = [{ pattern = "boulderme-api.runsit.ca", custom_domain = true }]
