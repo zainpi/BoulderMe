@@ -32,7 +32,7 @@ CODE_SIGN_STYLE = Automatic
 BM_ENVIRONMENT = production
 API_BASE_URL = https:/$()/api.boulderme.app
 
-// Settings → About links. Placeholders until the site exists (see FOLLOW_UP_PROMPTS.md).
-PRIVACY_URL = https:/$()/boulderme.app/privacy
-TERMS_URL = https:/$()/boulderme.app/terms
-SUPPORT_URL = https:/$()/boulderme.app/support
+// Settings → About links, hosted on runsit.ca (zainpi/runIT, src/app/boulderme).
+PRIVACY_URL = https:/$()/runsit.ca/boulderme/privacy/
+TERMS_URL = https:/$()/runsit.ca/boulderme/terms/
+SUPPORT_URL = https:/$()/runsit.ca/boulderme/support/

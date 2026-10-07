@@ -9,9 +9,9 @@ struct AppConfig: Sendable {
 
     let environment: Environment
     let apiBaseURL: URL
-    var privacyURL = URL(string: "https://boulderme.app/privacy")!
-    var termsURL = URL(string: "https://boulderme.app/terms")!
-    var supportURL = URL(string: "https://boulderme.app/support")!
+    var privacyURL = URL(string: "https://runsit.ca/boulderme/privacy/")!
+    var termsURL = URL(string: "https://runsit.ca/boulderme/terms/")!
+    var supportURL = URL(string: "https://runsit.ca/boulderme/support/")!
     let version: String
     let build: String
     /// Launch argument `-BMDemo YES` opens straight into demo mode (screenshots, UI tests).
